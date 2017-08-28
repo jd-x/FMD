@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, math, WebsiteModules, uData, uBaseUnit, uDownloadsManager,
-  XQueryEngineHTML, httpsendthread, synautil, RegExpr;
+  XQueryEngineHTML, httpsendthread, Cloudflare, synautil, RegExpr;
 
 implementation
 
@@ -17,15 +17,24 @@ const
   dirurl = apiurlmangas + '?searchBy=nombre&sortDir=asc&sortedBy=nombre&itemsPerPage=';
   perpage = '1000';
   mangaurl = '/biblioteca/mangas/';
-  imgurl = 'http://img1.tumangaonline.com';
+  imgurl = 'https://img1.tumangaonline.com';
 
-function GetDirectoryPageNumber(const MangaInfo: TMangaInformation; var Page: Integer;
+var
+  tumangacf: TCFProps;
+
+function GETWithCookie(const AHTTP: THTTPSendThread; const AURL: String):
+ Boolean;
+begin
+  Result := Cloudflare.GETCF(AHTTP, AURL, tumangacf);
+end;
+
+function GetDirectoryPageNumber(const MangaInfo: TMangaInformation; var Page: Integer; const WorkPtr: Integer;
   const Module: TModuleContainer): Integer;
 begin
   Result := NET_PROBLEM;
   Page := 1;
   if MangaInfo = nil then Exit(UNKNOWN_ERROR);
-  if MangaInfo.FHTTP.GET(Module.RootURL + dirurl + '1&page=1') then
+  if GETWithCookie(MangaInfo.FHTTP, Module.RootURL + dirurl + '1&page=1') then
   begin
     Result := NO_ERROR;
     with TXQueryEngineHTML.Create(MangaInfo.FHTTP.Document) do
@@ -45,7 +54,7 @@ var
 begin
   Result := NET_PROBLEM;
   if MangaInfo = nil then Exit(UNKNOWN_ERROR);
-  if MangaInfo.FHTTP.GET(Module.RootURL + dirurl + perpage + '&page=' + IncStr(AURL)) then
+  if GETWithCookie(MangaInfo.FHTTP, Module.RootURL + dirurl + perpage + '&page=' + IncStr(AURL)) then
   begin
     Result := NO_ERROR;
     with TXQueryEngineHTML.Create(MangaInfo.FHTTP.Document) do
@@ -74,9 +83,9 @@ begin
   with MangaInfo.mangaInfo, MangaInfo.FHTTP do
   begin
     url := FillHost(Module.RootURL, AURL);
-    mangaid := RegExprGetMatch('/mangas/(\d+)/', url, 1);
+    mangaid := RegExprGetMatch('/\w+/(\d+)/\w+', url, 1);
     if mangaid = '' then Exit;
-    if GET(Module.RootURL + apiurlmangas + '/' + mangaid) then
+    if GETWithCookie(MangaInfo.FHTTP, Module.RootURL + apiurlmangas + '/' + mangaid) then
     begin
       Result := NO_ERROR;
       with TXQueryEngineHTML.Create(Document) do
@@ -84,11 +93,7 @@ begin
           coverLink := XPathString('json(*).imageUrl');
           if coverLink <> '' then coverLink := MaybeFillHost(imgurl, coverLink);
           if title = '' then title := XPathString('json(*).nombre');
-          s := XPathString('json(*).estado');
-          if Pos('Activo', s) <> 0 then
-            status := '1'
-          else if Pos('Finalizado', s) <> 0 then
-            status := '0';
+          status := MangaInfoStatusIfPos(XPathString('json(*).estado'), 'Activo', 'Finalizado');
           summary := XPathString('json(*).info.sinopsis');
           genres := XPathStringAll('json(*).generos().genero');
           AddCommaString(genres, XPathStringAll('json(*).categorias().categoria'));
@@ -133,7 +138,7 @@ begin
   begin
     PageLinks.Clear;
     PageNumber := 0;
-    if GET(FillHost(Module.RootURL, AURL)) then
+    if GETWithCookie(DownloadThread.FHTTP, FillHost(Module.RootURL, AURL)) then
     begin
       Result := True;
       with TXQueryEngineHTML.Create(Document) do
@@ -149,21 +154,35 @@ begin
   end;
 end;
 
+function DownloadImageWithCookie(const DownloadThread: TDownloadThread;
+  const AURL, APath, AName: String; const Module: TModuleContainer): Boolean;
+begin
+  Result := False;
+  if DownloadThread = nil then Exit;
+  if GETWithCookie(DownloadThread.FHTTP, AURL) then
+    result := SaveImageStreamToFile(DownloadThread.FHTTP, APath, AName) <> '';
+end;
+
 procedure RegisterModule;
 begin
   with AddModule do begin
     Website := 'Tumangaonline';
-    RootURL := 'http://www.tumangaonline.com';
+    RootURL := 'https://www.tumangaonline.com';
     MaxTaskLimit := 1;
     MaxConnectionLimit := 1;
     OnGetDirectoryPageNumber := @GetDirectoryPageNumber;
     OnGetNameAndLink := @GetNameAndLink;
     OnGetInfo := @GetInfo;
     OnGetPageNumber := @GetPageNumber;
+    OnDownloadImage := @DownloadImageWithCookie;
   end;
 end;
 
 initialization
+  tumangacf := TCFProps.Create;
   RegisterModule;
+
+finalization
+  tumangacf.Free;
 
 end.

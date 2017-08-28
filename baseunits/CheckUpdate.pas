@@ -10,11 +10,12 @@ unit CheckUpdate;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, uBaseUnit, FMDOptions, httpsendthread;
+  Classes, SysUtils, Forms, Controls, uBaseUnit, FMDOptions, httpsendthread,
+  BaseThread;
 
 type
 
-  TCheckUpdateThread = class(THTTPThread)
+  TCheckUpdateThread = class(TBaseThread)
   private
     FHTTP: THTTPSendThread;
     fNewVersionNumber, fUpdateURL, fChangelog: String;
@@ -37,7 +38,7 @@ resourcestring
 implementation
 
 uses
-  frmMain, frmUpdateDialog;
+  frmMain, frmUpdateDialog, FMDVars;
 
 { TCheckUpdateThread }
 
@@ -60,7 +61,7 @@ begin
       end;
       if ShowModal = mrYes then
       begin
-        frmMain.FUpdateURL := fUpdateURL;
+        UpdateURL := fUpdateURL;
         DoAfterFMD := DO_UPDATE;
         MainForm.tmExitCommand.Enabled := True;
       end
@@ -136,7 +137,7 @@ end;
 destructor TCheckUpdateThread.Destroy;
 begin
   FHTTP.Free;
-  MainForm.CheckUpdateThread := nil;
+  CheckUpdateThread := nil;
   inherited Destroy;
 end;
 

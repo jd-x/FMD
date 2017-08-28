@@ -18,7 +18,6 @@ const
   diralpha = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 var
-  MMangaSee,
   MMangaTraders: TModuleContainer;
   MangaTradersLockLogin: TRTLCriticalSection;
   MangaTradersOnLogin: Boolean;
@@ -85,7 +84,7 @@ begin
 end;
 
 function GetDirectoryPageNumber(const MangaInfo: TMangaInformation;
-  var Page: Integer; const Module: TModuleContainer): Integer;
+  var Page: Integer; const WorkPtr: Integer; const Module: TModuleContainer): Integer;
 begin
   Result := NO_ERROR;
   if Module = MMangaTraders then
@@ -153,8 +152,27 @@ begin
       Result := NO_ERROR;
       with TXQueryEngineHTML.Create(Document) do
         try
+          title := XPathString('//*[@class="row"]//h1');
+          if ResultCode = 404 then
+          begin
+            status := '-1';
+            Exit;
+          end;
+          if (Module = MMangaTraders) and (Pos('/series/', url) <> 0) then
+          begin
+            s := XPathString('//div[@class="alert alert-success startReading"]/a/@href');
+            if Pos('/manga/', s) <> 0 then
+            begin
+              s := MaybeFillHost(Module.RootURL, s);
+              if GET(s) then
+                ParseHTML(Document)
+              else
+                r := False;
+            end
+            else
+              r := False;
+          end;
           coverLink := MaybeFillHost(Module.RootURL, XPathString('//meta[@property="og:image"]/@content'));
-          if title = '' then title := XPathString('//*[@class="row"]//h1');
           authors := SeparateRight(XPathString('//*[@class="row"][starts-with(.,"Author")]'), ':');
           artists := SeparateRight(XPathString('//*[@class="row"][starts-with(.,"Artist")]'), ':');
           status := XPathString('//*[@class="row"][starts-with(.,"Scanlation Status")]');
@@ -164,15 +182,18 @@ begin
             status := MangaInfoStatusIfPos(status);
           genres := SeparateRight(XPathString('//*[@class="row"][starts-with(.,"Genre")]'), ':');
           summary := Trim(SeparateRight(XPathString('//*[@class="row"][starts-with(.,"Description")]'), ':'));
-          for v in XPath('//div[@class="list chapter-list"]//a') do
+          if r then
           begin
-            s := v.toNode.getAttribute('href');
-            if Pos('-page-1', s) > 0 then
-              s := StringReplace(s, '-page-1', '', []);
-            chapterLinks.Add(s);
-            chapterName.Add(XPathString('span[@class="chapterLabel"]', v));
+            for v in XPath('//div[@class="list chapter-list"]//a') do
+            begin
+              s := v.toNode.getAttribute('href');
+              if Pos('-page-1', s) <> 0 then
+                s := StringReplace(s, '-page-1', '', []);
+              chapterLinks.Add(s);
+              chapterName.Add(XPathString('span[@class="chapterLabel"]', v));
+            end;
+            InvertStrings([chapterLinks, chapterName]);
           end;
-          InvertStrings([chapterLinks, chapterName]);
         finally
           Free;
         end;
@@ -182,8 +203,6 @@ end;
 
 function GetPageNumber(const DownloadThread: TDownloadThread;
   const AURL: String; const Module: TModuleContainer): Boolean;
-var
-  v: IXQValue;
 begin
   Result := False;
   if DownloadThread = nil then Exit;
@@ -196,7 +215,7 @@ begin
       Result := True;
       with TXQueryEngineHTML.Create(Document) do
         try
-          XPathStringAll('//*[@class="image-container"]//img/@src', PageLinks);
+          XPathStringAll('//*[contains(@class,"image-container")]//img/@src', PageLinks);
         finally
           Free;
         end;
@@ -222,7 +241,7 @@ procedure RegisterModule;
 
 begin
   AddWebsiteModule('MangaLife', 'http://mangalife.org');
-  MMangaSee := AddWebsiteModule('MangaSee', 'http://mangaseeonline.net');
+  AddWebsiteModule('MangaSee', 'http://mangaseeonline.us');
   MMangaTraders := AddWebsiteModule('MangaTraders', 'http://mangatraders.biz');
   MMangaTraders.AccountSupport := True;
   MMangaTraders.OnLogin := @MangaTradersLogin;

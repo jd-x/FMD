@@ -15,7 +15,7 @@ interface
 
 uses
   Classes, SysUtils, uBaseUnit, DBDataProcess, FMDOptions, httpsendthread,
-  LazFileUtils, strutils, RegExpr, httpsend, MultiLog;
+  BaseThread, LazFileUtils, strutils, RegExpr, httpsend, MultiLog;
 
 type
 
@@ -77,6 +77,8 @@ type
   { TMangaInformation }
 
   TMangaInformation = class(TObject)
+  private
+    FOwner: TBaseThread;
   public
     isGetByUpdater: Boolean;
     mangaInfo: TMangaInfo;
@@ -88,26 +90,27 @@ type
     ModuleId: Integer;
 
     procedure OnTag(NoCaseTag, ActualTag: String);
-    procedure OnText(Text: String);
-    constructor Create(AOwnerThread: THTTPThread = nil; CreateInfo: Boolean = True);
+    procedure OnText(AText: String);
+    constructor Create(AOwnerThread: TBaseThread = nil; ACreateInfo: Boolean = True);
     destructor Destroy; override;
     procedure ClearInfo;
-    function GetDirectoryPage(var Page: Integer; const website: String): Byte;
-    function GetNameAndLink(const names, links: TStringList; const website, URL: String): Byte;
-    function GetInfoFromURL(const website, URL: String; const Reconnect: Integer = 0): Byte;
-    procedure SyncInfoToData(const DataProcess: TDataProcess; const index: Cardinal); overload;
-    procedure SyncInfoToData(const DataProcess: TDBDataProcess); overload;
-    procedure SyncMinorInfoToData(const DataProcess: TDataProcess; const index: Cardinal);
+    function GetDirectoryPage(var APage: Integer; const AWebsite: String): Byte;
+    function GetNameAndLink(const ANames, ALinks: TStringList; const AWebsite, AURL: String): Byte;
+    function GetInfoFromURL(const AWebsite, AURL: String; const AReconnect: Integer = 0): Byte;
+    procedure SyncInfoToData(const ADataProcess: TDataProcess; const AIndex: Cardinal); overload;
+    procedure SyncInfoToData(const ADataProcess: TDBDataProcess); overload;
+    procedure SyncMinorInfoToData(const ADataProcess: TDataProcess; const AIndex: Cardinal);
 
     // Only use this function for getting manga infos for the first time
-    procedure AddInfoToDataWithoutBreak(const Name, link: String; const DataProcess: TDataProcess);
+    procedure AddInfoToDataWithoutBreak(const AName, ALink: String; const ADataProcess: TDataProcess);
     // Only use this function for update manga list
-    procedure AddInfoToData(const Name, link: String; const DataProcess: TDataProcess);
+    procedure AddInfoToData(const AName, Alink: String; const ADataProcess: TDataProcess);
       overload;
     // to add data to TDBDataProcess
-    procedure AddInfoToData(const Title, Link: String; const DataProcess: TDBDataProcess); overload;
+    procedure AddInfoToData(const ATitle, ALink: String; const ADataProcess: TDBDataProcess); overload;
     //wrapper
-    function GetPage(var output: TObject; URL: String; const Reconnect: Integer = 0): Boolean; inline;
+    function GetPage(var AOutput: TObject; AURL: String; const AReconnect: Integer = 0): Boolean; inline;
+    property Thread: TBaseThread read FOwner;
   end;
 
 var
@@ -117,7 +120,7 @@ implementation
 
 uses
   Dialogs, fpJSON, JSONParser, jsonscanner, FastHTMLParser, HTMLUtil,
-  SynaCode, frmMain, WebsiteModules;
+  SynaCode, frmMain, WebsiteModules, uUpdateThread;
 
 // ----- TDataProcess -----
 
@@ -713,13 +716,14 @@ end;
 
 { TMangaInformation }
 
-constructor TMangaInformation.Create(AOwnerThread: THTTPThread; CreateInfo: Boolean);
+constructor TMangaInformation.Create(AOwnerThread: TBaseThread; ACreateInfo: Boolean);
 begin
   inherited Create;
+  FOwner := AOwnerThread;
   FHTTP := THTTPSendThread.Create(AOwnerThread);
   FHTTP.Headers.NameValueSeparator := ':';
   parse := TStringList.Create;
-  if CreateInfo then
+  if ACreateInfo then
     mangaInfo := TMangaInfo.Create;
   isGetByUpdater := False;
   ModuleId := -1;
@@ -757,42 +761,30 @@ begin
   parse.Add(ActualTag);
 end;
 
-procedure TMangaInformation.OnText(Text: String);
+procedure TMangaInformation.OnText(AText: String);
 begin
-  parse.Add(Text);
+  parse.Add(AText);
 end;
 
-function TMangaInformation.GetDirectoryPage(var Page: Integer; const website: String): Byte;
+function TMangaInformation.GetDirectoryPage(var APage: Integer; const AWebsite: String): Byte;
 var
   s: String;
   p: Integer;
   Source: TStringList;
   Parser: THTMLParser;
-  WebsiteID: Cardinal;
+  MangaSiteID: Integer;
 
   {$I includes/AnimeA/directory_page_number.inc}
 
-  {$I includes/Manga24h/directory_page_number.inc}
-
   {$I includes/VnSharing/directory_page_number.inc}
-
-  {$I includes/Fakku/directory_page_number.inc}
-
-  {$I includes/MangaGo/directory_page_number.inc}
-
-  {$I includes/BlogTruyen/directory_page_number.inc}
 
   {$I includes/S2Scans/directory_page_number.inc}
 
   {$I includes/LectureEnLigne/directory_page_number.inc}
 
-  {$I includes/MangaAe/directory_page_number.inc}
-
   {$I includes/CentralDeMangas/directory_page_number.inc}
 
   {$I includes/DM5/directory_page_number.inc}
-
-  {$I includes/NineManga/directory_page_number.inc}
 
   {$I includes/JapanShin/directory_page_number.inc}
 
@@ -800,151 +792,101 @@ var
 
   {$I includes/MangaTown/directory_page_number.inc}
 
-  {$I includes/MyReadingMangaInfo/directory_page_number.inc}
-
   {$I includes/IKomik/directory_page_number.inc}
 
   {$I includes/NHentai/directory_page_number.inc}
 
-  {$I includes/MangaMint/directory_page_number.inc}
-
   {$I includes/MangaHost/directory_page_number.inc}
 
-  {$I includes/PornComix/directory_page_number.inc}
-
   {$I includes/MangaAt/directory_page_number.inc}
-
-  {$I includes/ReadMangaToday/directory_page_number.inc}
 
   {$I includes/Dynasty-Scans/directory_page_number.inc}
 
 begin
-  Page := 0;
+  APage := 0;
 
   //load User-Agent from advancedfile
-  AdvanceLoadHTTPConfig(FHTTP, website);
+  AdvanceLoadHTTPConfig(FHTTP, AWebsite);
 
   //load pagenumber_config if available
-  p := advancedfile.ReadInteger('UpdateListDirectoryPageNumber', website, -1);
+  p := advancedfile.ReadInteger('UpdateListDirectoryPageNumber', AWebsite, -1);
 
   if p > 0 then
   begin
-    Page := p;
+    APage := p;
     BROWSER_INVERT := True;
   end
   else
   begin
     BROWSER_INVERT := False;
     if ModuleId < 0 then
-      ModuleId := Modules.LocateModule(website);
+      ModuleId := Modules.LocateModule(AWebsite);
     if Modules.ModuleAvailable(ModuleId, MMGetDirectoryPageNumber) then
-      Result := Modules.GetDirectoryPageNumber(Self, Page, ModuleId)
+      Result := Modules.GetDirectoryPageNumber(Self, APage, TUpdateListThread(Thread).workPtr, ModuleId)
     else
     begin
-      WebsiteID := GetMangaSiteID(website);
+      MangaSiteID := GetMangaSiteID(AWebsite);
       Source := TStringList.Create;
-      if WebsiteID = ANIMEA_ID then
+      if MangaSiteID = ANIMEA_ID then
         Result := GetAnimeADirectoryPageNumber
       else
-      if WebsiteID = MANGA24H_ID then
-        Result := GetManga24hDirectoryPageNumber
-      else
-      if WebsiteID = VNSHARING_ID then
+      if MangaSiteID = VNSHARING_ID then
         Result := GetVnSharingDirectoryPageNumber
       else
-      if WebsiteID = FAKKU_ID then
-        Result := GetFakkuDirectoryPageNumber
-      else
-      if WebsiteID = MANGAGO_ID then
-        Result := GetMangaGoDirectoryPageNumber
-      else
-      if WebsiteID = BLOGTRUYEN_ID then
-        Result := GetBlogTruyenDirectoryPageNumber
-      else
-      if WebsiteID = S2SCAN_ID then
+      if MangaSiteID = S2SCAN_ID then
         Result := GetS2ScanDirectoryPageNumber
       else
-      if WebsiteID = LECTUREENLIGNE_ID then
+      if MangaSiteID = LECTUREENLIGNE_ID then
         Result := GetLectureEnLigneDirectoryPageNumber
       else
-      if WebsiteID = MANGAAE_ID then
-        Result := GetMangaAeDirectoryPageNumber
-      else
-      if WebsiteID = CENTRALDEMANGAS_ID then
+      if MangaSiteID = CENTRALDEMANGAS_ID then
         Result := GetCentralDeMangasDirectoryPageNumber
       else
-      if WebsiteID = DM5_ID then
+      if MangaSiteID = DM5_ID then
         Result := GetDM5DirectoryPageNumber
       else
-      if (WebsiteID = NINEMANGA_ID) or
-        (WebsiteID = NINEMANGA_ES_ID) or
-        (WebsiteID = NINEMANGA_CN_ID) or
-        (WebsiteID = NINEMANGA_RU_ID) or
-        (WebsiteID = NINEMANGA_DE_ID) or
-        (WebsiteID = NINEMANGA_IT_ID) or
-        (WebsiteID = NINEMANGA_BR_ID) then
-        Result := GetNineMangaDirectoryPageNumber
-      else
-      if WebsiteID = JAPANSHIN_ID then
+      if MangaSiteID = JAPANSHIN_ID then
         Result := GetJapanShinDirectoryPageNumber
       else
-      if WebsiteID = ONEMANGA_ID then
+      if MangaSiteID = ONEMANGA_ID then
         Result := GetOneMangaDirectoryPageNumber
       else
-      if WebsiteID = MANGATOWN_ID then
+      if MangaSiteID = MANGATOWN_ID then
         Result := GetMangaTownDirectoryPageNumber
       else
-      if WebsiteID = MYREADINGMANGAINFO_ID then
-        Result := GetMyReadingMangaInfoDirectoryPageNumber
-      else
-      if WebsiteID = IKOMIK_ID then
+      if MangaSiteID = IKOMIK_ID then
         Result := GetIKomikDirectoryPageNumber
       else
-      if WebsiteID = NHENTAI_ID then
+      if MangaSiteID = NHENTAI_ID then
         Result := GetNHentaiDirectoryPageNumber
       else
-      if WebsiteID = MANGAMINT_ID then
-        Result := GetMangaMintDirectoryPageNumber
-      else
-      if WebsiteID = MANGAHOST_ID then
+      if MangaSiteID = MANGAHOST_ID then
         Result := GetMangaHostDirectoryPageNumber
       else
-      if (WebsiteID = PORNCOMIX_ID) or
-        (WebsiteID = XXCOMICS_ID) or
-        (WebsiteID = XXCOMICSMT_ID) or
-        (WebsiteID = XXCOMICS3D_ID) or
-        (WebsiteID = PORNCOMIXRE_ID) or
-        (WebsiteID = PORNCOMIXIC_ID) or
-        (WebsiteID = PORNXXXCOMICS_ID) then
-        Result := GetPornComixDirectoryPageNumber(GetMangaSiteID(website))
-      else
-      if WebsiteID = MANGAAT_ID then
+      if MangaSiteID = MANGAAT_ID then
         Result := GetMangaAtDirectoryPageNumber
       else
-      if WebsiteID = READMANGATODAY_ID then
-        Result := GetReadMangaTodayDirectoryPageNumber
-      else
-      if WebsiteID = DYNASTYSCANS_ID then
+      if MangaSiteID = DYNASTYSCANS_ID then
         Result := GetDynastyScansDirectoryPageNumber
       else
       begin
         Result := NO_ERROR;
-        Page := 1;
+        APage := 1;
         Source.Free;
       end;
     end;
 
-    if page < 1 then
-      Page := 1;
+    if APage < 1 then
+      APage := 1;
   end;
 end;
 
-function TMangaInformation.GetNameAndLink(const names, links: TStringList;
-  const website, URL: String): Byte;
+function TMangaInformation.GetNameAndLink(const ANames, ALinks: TStringList;
+  const AWebsite, AURL: String): Byte;
 var
   Source: TStringList;
   Parser: THTMLParser;
-  WebsiteID: Cardinal;
+  MangaSiteID: Integer;
 
   {$I includes/AnimeA/names_and_links.inc}
 
@@ -952,19 +894,7 @@ var
 
   {$I includes/AnimExtremist/names_and_links.inc}
 
-  {$I includes/Manga24h/names_and_links.inc}
-
   {$I includes/VnSharing/names_and_links.inc}
-
-  {$I includes/Fakku/names_and_links.inc}
-
-  {$I includes/TruyenTranhTuan/names_and_links.inc}
-
-  {$I includes/Mabuns/names_and_links.inc}
-
-  {$I includes/MangaEsta/names_and_links.inc}
-
-  {$I includes/HugeManga/names_and_links.inc}
 
   {$I includes/AnimeStory/names_and_links.inc}
 
@@ -974,8 +904,6 @@ var
 
   {$I includes/MangaAr/names_and_links.inc}
 
-  {$I includes/MangaAe/names_and_links.inc}
-
   {$I includes/CentralDeMangas/names_and_links.inc}
 
   {$I includes/Imanhua/names_and_links.inc}
@@ -984,15 +912,9 @@ var
 
   {$I includes/Starkana/names_and_links.inc}
 
-  {$I includes/EatManga/names_and_links.inc}
-
-  {$I includes/MangaGo/names_and_links.inc}
-
   {$I includes/S2Scans/names_and_links.inc}
 
   {$I includes/EGScans/names_and_links.inc}
-
-  {$I includes/BlogTruyen/names_and_links.inc}
 
   {$I includes/Kivmanga/names_and_links.inc}
 
@@ -1002,11 +924,7 @@ var
 
   {$I includes/MangaREADER_POR/names_and_links.inc}
 
-  {$I includes/NineManga/names_and_links.inc}
-
   {$I includes/JapanShin/names_and_links.inc}
-
-  {$I includes/Japscan/names_and_links.inc}
 
   {$I includes/CentrumMangi_PL/names_and_links.inc}
 
@@ -1018,13 +936,9 @@ var
 
   {$I includes/MangaOku/names_and_links.inc}
 
-  {$I includes/MyReadingMangaInfo/names_and_links.inc}
-
   {$I includes/IKomik/names_and_links.inc}
 
   {$I includes/NHentai/names_and_links.inc}
-
-  {$I includes/MangaMint/names_and_links.inc}
 
   {$I includes/UnixManga/names_and_links.inc}
 
@@ -1032,182 +946,118 @@ var
 
   {$I includes/MangaHost/names_and_links.inc}
 
-  {$I includes/PornComix/names_and_links.inc}
-
   {$I includes/MangaKu/names_and_links.inc}
 
   {$I includes/MangaAt/names_and_links.inc}
-
-  {$I includes/ReadMangaToday/names_and_links.inc}
 
   {$I includes/Dynasty-Scans/names_and_links.inc}
 
 begin
   //load User-Agent from advancedfile
-  AdvanceLoadHTTPConfig(FHTTP, website);
+  AdvanceLoadHTTPConfig(FHTTP, AWebsite);
 
   if ModuleId < 0 then
-    ModuleId := Modules.LocateModule(website);
+    ModuleId := Modules.LocateModule(AWebsite);
   if Modules.ModuleAvailable(ModuleId, MMGetNameAndLink) then
-    Result := Modules.GetNameAndLink(Self, names, links, URL, ModuleId)
+    Result := Modules.GetNameAndLink(Self, ANames, ALinks, AURL, ModuleId)
   else
   begin
-    WebsiteID := GetMangaSiteID(website);
+    MangaSiteID := GetMangaSiteID(AWebsite);
     Source := TStringList.Create;
-    if WebsiteID = ANIMEA_ID then
+    if MangaSiteID = ANIMEA_ID then
       Result := AnimeAGetNamesAndLinks
     else
-    if WebsiteID = MANGA24H_ID then
-      Result := Manga24hGetNamesAndLinks
-    else
-    if WebsiteID = VNSHARING_ID then
+    if MangaSiteID = VNSHARING_ID then
       Result := VnSharingGetNamesAndLinks
     else
-    if WebsiteID = FAKKU_ID then
-      Result := FakkuGetNamesAndLinks
-    else
-    if WebsiteID = STARKANA_ID then
+    if MangaSiteID = STARKANA_ID then
       Result := StarkanaGetNamesAndLinks
     else
-    if WebsiteID = EATMANGA_ID then
-      Result := EatMangaGetNamesAndLinks
-    else
-    if WebsiteID = MANGAGO_ID then
-      Result := MangaGoGetNamesAndLinks
-    else
-    if WebsiteID = S2SCAN_ID then
+    if MangaSiteID = S2SCAN_ID then
       Result := S2ScanGetNamesAndLinks
     else
-    if WebsiteID = EGSCANS_ID then
+    if MangaSiteID = EGSCANS_ID then
       Result := EGScansGetNamesAndLinks
     else
-    if WebsiteID = MEINMANGA_ID then
+    if MangaSiteID = MEINMANGA_ID then
       Result := MeinMangaGetNamesAndLinks
     else
-    if WebsiteID = BLOGTRUYEN_ID then
-      Result := BlogTruyenGetNamesAndLinks
-    else
-    if WebsiteID = TRUYENTRANHTUAN_ID then
-      Result := TruyenTranhTuanGetNamesAndLinks
-    else
-    if WebsiteID = ESMANGAHERE_ID then
+    if MangaSiteID = ESMANGAHERE_ID then
       Result := EsMangaHereGetNamesAndLinks
     else
-    if WebsiteID = ANIMEEXTREMIST_ID then
+    if MangaSiteID = ANIMEEXTREMIST_ID then
       Result := AnimeExtremistGetNamesAndLinks
     else
-    if WebsiteID = MABUNS_ID then
-      Result := MabunsGetNamesAndLinks
-    else
-    if WebsiteID = MANGAESTA_ID then
-      Result := MangaEstaGetNamesAndLinks
-    else
-    if WebsiteID = HUGEMANGA_ID then
-      Result := HugeMangaGetNamesAndLinks
-    else
-    if WebsiteID = ANIMESTORY_ID then
+    if MangaSiteID = ANIMESTORY_ID then
       Result := AnimeStoryGetNamesAndLinks
     else
-    if WebsiteID = LECTUREENLIGNE_ID then
+    if MangaSiteID = LECTUREENLIGNE_ID then
       Result := LectureEnLigneGetNamesAndLinks
     else
-    if WebsiteID = SCANMANGA_ID then
+    if MangaSiteID = SCANMANGA_ID then
       Result := ScanMangaGetNamesAndLinks
     else
-    if WebsiteID = MANGAAR_ID then
+    if MangaSiteID = MANGAAR_ID then
       Result := MangaArGetNamesAndLinks
     else
-    if WebsiteID = MANGAAE_ID then
-      Result := MangaAeGetNamesAndLinks
-    else
-    if WebsiteID = CENTRALDEMANGAS_ID then
+    if MangaSiteID = CENTRALDEMANGAS_ID then
       Result := CentralDeMangasGetNamesAndLinks
     else
-    if WebsiteID = IMANHUA_ID then
+    if MangaSiteID = IMANHUA_ID then
       Result := imanhuaGetNamesAndLinks
     else
-    if WebsiteID = TURKCRAFT_ID then
+    if MangaSiteID = TURKCRAFT_ID then
       Result := TurkcraftGetNamesAndLinks
     else
-    if WebsiteID = KIVMANGA_ID then
+    if MangaSiteID = KIVMANGA_ID then
       Result := KivmangaGetNamesAndLinks
     else
-    if WebsiteID = MANGASPROJECT_ID then
+    if MangaSiteID = MANGASPROJECT_ID then
       Result := MangasPROJECTGetNamesAndLinks
     else
-    if WebsiteID = MANGAREADER_POR_ID then
+    if MangaSiteID = MANGAREADER_POR_ID then
       Result := MangaREADER_PORGetNamesAndLinks
     else
-    if (WebsiteID = NINEMANGA_ID) or
-      (WebsiteID = NINEMANGA_ES_ID) or
-      (WebsiteID = NINEMANGA_CN_ID) or
-      (WebsiteID = NINEMANGA_RU_ID) or
-      (WebsiteID = NINEMANGA_DE_ID) or
-      (WebsiteID = NINEMANGA_IT_ID) or
-      (WebsiteID = NINEMANGA_BR_ID) then
-      Result := NineMangaGetNamesAndLinks
-    else
-    if WebsiteID = JAPANSHIN_ID then
+    if MangaSiteID = JAPANSHIN_ID then
       Result := JapanShinGetNamesAndLinks
     else
-    if WebsiteID = JAPSCAN_ID then
-      Result := JapscanNamesAndLinks
-    else
-    if WebsiteID = CENTRUMMANGI_PL_ID then
+    if MangaSiteID = CENTRUMMANGI_PL_ID then
       Result := CentrumMangi_PLGetNamesAndLinks
     else
-    if WebsiteID = MANGALIB_PL_ID then
+    if MangaSiteID = MANGALIB_PL_ID then
       Result := MangaLib_PLGetNamesAndLinks
     else
-    if WebsiteID = ONEMANGA_ID then
+    if MangaSiteID = ONEMANGA_ID then
       Result := OneMangaGetNamesAndLinks
     else
-   if WebsiteID = MANGATOWN_ID then
+   if MangaSiteID = MANGATOWN_ID then
       Result := MangaTownGetNamesAndLinks
     else
-    if WebsiteID = MANGAOKU_ID then
+    if MangaSiteID = MANGAOKU_ID then
       Result := MangaOkuGetNamesAndLinks
     else
-    if WebsiteID = MYREADINGMANGAINFO_ID then
-      Result := MyReadingMangaInfoNamesAndLinks
-    else
-    if WebsiteID = IKOMIK_ID then
+    if MangaSiteID = IKOMIK_ID then
       Result := IKomikNamesAndLinks
     else
-    if WebsiteID = NHENTAI_ID then
+    if MangaSiteID = NHENTAI_ID then
       Result := NHentaiNamesAndLinks
     else
-    if WebsiteID = MANGAMINT_ID then
-      Result := MangaMintGetNamesAndLinks
-    else
-    if WebsiteID = UNIXMANGA_ID then
+    if MangaSiteID = UNIXMANGA_ID then
       Result := UnixMangaNamesAndLinks
     else
-    if WebsiteID = EXTREMEMANGAS_ID then
+    if MangaSiteID = EXTREMEMANGAS_ID then
       Result := ExtremeMangasNamesAndLinks
     else
-    if WebsiteID = MANGAHOST_ID then
+    if MangaSiteID = MANGAHOST_ID then
       Result := MangaHostGetNamesAndLinks
     else
-    if (WebsiteID = PORNCOMIX_ID) or
-      (WebsiteID = XXCOMICS_ID) or
-      (WebsiteID = XXCOMICSMT_ID) or
-      (WebsiteID = XXCOMICS3D_ID) or
-      (WebsiteID = PORNCOMIXRE_ID) or
-      (WebsiteID = PORNCOMIXIC_ID) or
-      (WebsiteID = PORNXXXCOMICS_ID) then
-      Result := PornComixGetNamesAndLinks(GetMangaSiteID(website))
-    else
-    if WebsiteID = MANGAKU_ID then
+    if MangaSiteID = MANGAKU_ID then
       Result := MangaKuGetNamesAndLinks
     else
-    if WebsiteID = MANGAAT_ID then
+    if MangaSiteID = MANGAAT_ID then
       Result := MangaAtGetNamesAndLinks
     else
-    if WebsiteID = READMANGATODAY_ID then
-      Result := ReadMangaTodayGetNamesAndLinks
-    else
-    if WebsiteID = DYNASTYSCANS_ID then
+    if MangaSiteID = DYNASTYSCANS_ID then
       Result := DynastyScansGetNamesAndLinks
     else
     begin
@@ -1216,19 +1066,19 @@ begin
     end;
   end;
 
-  //remove host from url
-  if links.Count > 0 then
-    RemoveHostFromURLsPair(links, names);
+  //remove host from AURL
+  if ALinks.Count > 0 then
+    RemoveHostFromURLsPair(ALinks, ANames);
 end;
 
-function TMangaInformation.GetInfoFromURL(const website, URL: String; const Reconnect: Integer): Byte;
+function TMangaInformation.GetInfoFromURL(const AWebsite, AURL: String; const AReconnect: Integer): Byte;
 var
   s, s2: String;
   j, k: Integer;
   del: Boolean;
   Source: TStringList;
   Parser: THTMLParser;
-  WebsiteID: Cardinal;
+  MangaSiteID: Integer;
 
   {$I includes/AnimeA/manga_information.inc}
 
@@ -1239,29 +1089,13 @@ var
 
   {$I includes/AnimExtremist/manga_information.inc}
 
-  {$I includes/Manga24h/manga_information.inc}
-
   {$I includes/VnSharing/manga_information.inc}
 
-  {$I includes/Fakku/manga_information.inc}
-
   {$I includes/Starkana/manga_information.inc}
-
-  {$I includes/EatManga/manga_information.inc}
 
   {$I includes/S2Scans/manga_information.inc}
 
   {$I includes/EGScans/manga_information.inc}
-
-  {$I includes/MangaGo/manga_information.inc}
-
-  {$I includes/TruyenTranhTuan/manga_information.inc}
-
-  {$I includes/Mabuns/manga_information.inc}
-
-  {$I includes/MangaEsta/manga_information.inc}
-
-  {$I includes/HugeManga/manga_information.inc}
 
   {$I includes/AnimeStory/manga_information.inc}
 
@@ -1273,11 +1107,7 @@ var
 
   {$I includes/MangaAr/manga_information.inc}
 
-  {$I includes/MangaAe/manga_information.inc}
-
   {$I includes/CentralDeMangas/manga_information.inc}
-
-  {$I includes/BlogTruyen/manga_information.inc}
 
   {$I includes/MeinManga/manga_information.inc}
 
@@ -1287,11 +1117,7 @@ var
 
   {$I includes/MangaREADER_POR/manga_information.inc}
 
-  {$I includes/NineManga/manga_information.inc}
-
   {$I includes/JapanShin/manga_information.inc}
-
-  {$I includes/Japscan/manga_information.inc}
 
   {$I includes/CentrumMangi_PL/manga_information.inc}
 
@@ -1303,13 +1129,9 @@ var
 
   {$I includes/MangaOku/manga_information.inc}
 
-  {$I includes/MyReadingMangaInfo/manga_information.inc}
-
   {$I includes/IKomik/manga_information.inc}
 
   {$I includes/NHentai/manga_information.inc}
-
-  {$I includes/MangaMint/manga_information.inc}
 
   {$I includes/UnixManga/manga_information.inc}
 
@@ -1317,193 +1139,129 @@ var
 
   {$I includes/MangaHost/manga_information.inc}
 
-  {$I includes/PornComix/manga_information.inc}
-
   {$I includes/MangaKu/manga_information.inc}
 
   {$I includes/MangaAt/manga_information.inc}
 
-  {$I includes/ReadMangaToday/manga_information.inc}
-
   {$I includes/Dynasty-Scans/manga_information.inc}
 
 begin
-  if Trim(URL) = '' then
+  if Trim(AURL) = '' then
     Exit(INFORMATION_NOT_FOUND);
 
   //load User-Agent from advancedfile
-  AdvanceLoadHTTPConfig(FHTTP, website);
+  AdvanceLoadHTTPConfig(FHTTP, AWebsite);
 
-  mangaInfo.website := website;
+  mangaInfo.website := AWebsite;
   mangaInfo.coverLink := '';
   mangaInfo.numChapter := 0;
   mangaInfo.chapterName.Clear;
   mangaInfo.chapterLinks.Clear;
 
   if ModuleId < 0 then
-    ModuleId := Modules.LocateModule(website);
+    ModuleId := Modules.LocateModule(AWebsite);
   if Modules.ModuleAvailable(ModuleId, MMGetInfo) then begin
-    mangaInfo.url := FillHost(Modules.Module[ModuleId].RootURL, URL);
-    Result := Modules.GetInfo(Self, URL, ModuleId);
+    mangaInfo.url := FillHost(Modules.Module[ModuleId].RootURL, AURL);
+    Result := Modules.GetInfo(Self, AURL, ModuleId);
   end
   else
   begin
-    WebsiteID := GetMangaSiteID(website);
-    if WebsiteID > High(WebsiteRoots) then
+    MangaSiteID := GetMangaSiteID(AWebsite);
+    if MangaSiteID > High(WebsiteRoots) then
       Exit(INFORMATION_NOT_FOUND);
-    mangaInfo.url := FillMangaSiteHost(WebsiteID, URL);
+    mangaInfo.url := FillMangaSiteHost(MangaSiteID, AURL);
     Source := TStringList.Create;
-    if WebsiteID = ANIMEA_ID then
+    if MangaSiteID = ANIMEA_ID then
       Result := GetAnimeAInfoFromURL
     else
-    if WebsiteID = MANGA24H_ID then
-      Result := GetManga24hInfoFromURL
-    else
-    if WebsiteID = VNSHARING_ID then
+    if MangaSiteID = VNSHARING_ID then
       Result := GetVnSharingInfoFromURL
     else
-    if WebsiteID = FAKKU_ID then
-      Result := GetFakkuInfoFromURL
-    else
-    if WebsiteID = STARKANA_ID then
+    if MangaSiteID = STARKANA_ID then
       Result := GetStarkanaInfoFromURL
     else
-    if WebsiteID = EATMANGA_ID then
-      Result := GetEatMangaInfoFromURL
-    else
-    if WebsiteID = MANGAGO_ID then
-      Result := GetMangaGoInfoFromURL
-    else
-    if WebsiteID = S2SCAN_ID then
+    if MangaSiteID = S2SCAN_ID then
       Result := GetS2scanInfoFromURL
     else
-    if WebsiteID = EGSCANS_ID then
+    if MangaSiteID = EGSCANS_ID then
       Result := GetEGScansInfoFromURL
     else
-    if WebsiteID = TRUYENTRANHTUAN_ID then
-      Result := GetTruyenTranhTuanInfoFromURL
-    else
-    if WebsiteID = MEINMANGA_ID then
+    if MangaSiteID = MEINMANGA_ID then
       Result := GetMeinMangaInfoFromURL
     else
-    if WebsiteID = ESMANGAHERE_ID then
+    if MangaSiteID = ESMANGAHERE_ID then
       Result := GetEsMangaHereInfoFromURL
     else
-    if WebsiteID = ANIMEEXTREMIST_ID then
+    if MangaSiteID = ANIMEEXTREMIST_ID then
       Result := GetAnimeExtremistInfoFromURL
     else
-    if WebsiteID = MABUNS_ID then
-      Result := GetMabunsInfoFromURL
-    else
-    if WebsiteID = MANGAESTA_ID then
-      Result := GetMangaEstaInfoFromURL
-    else
-    if WebsiteID = HUGEMANGA_ID then
-      Result := GetHugeMangaInfoFromURL
-    else
-    if WebsiteID = ANIMESTORY_ID then
+    if MangaSiteID = ANIMESTORY_ID then
       Result := GetAnimeStoryInfoFromURL
     else
-    if WebsiteID = LECTUREENLIGNE_ID then
+    if MangaSiteID = LECTUREENLIGNE_ID then
       Result := GetLectureEnLigneInfoFromURL
     else
-    if WebsiteID = SCANMANGA_ID then
+    if MangaSiteID = SCANMANGA_ID then
       Result := GetScanMangaInfoFromURL
     else
-    if WebsiteID = TURKCRAFT_ID then
+    if MangaSiteID = TURKCRAFT_ID then
       Result := GetTurkcraftInfoFromURL
     else
-    if WebsiteID = MANGAAR_ID then
+    if MangaSiteID = MANGAAR_ID then
       Result := GetMangaArInfoFromURL
     else
-    if WebsiteID = MANGAAE_ID then
-      Result := GetMangaAeInfoFromURL
-    else
-    if WebsiteID = CENTRALDEMANGAS_ID then
+    if MangaSiteID = CENTRALDEMANGAS_ID then
       Result := GetCentralDeMangasInfoFromURL
     else
-    if WebsiteID = BLOGTRUYEN_ID then
-      Result := GetBlogTruyenInfoFromURL
-    else
-    if WebsiteID = KIVMANGA_ID then
+    if MangaSiteID = KIVMANGA_ID then
       Result := GetKivmangaInfoFromURL
     else
-    if WebsiteID = MANGASPROJECT_ID then
+    if MangaSiteID = MANGASPROJECT_ID then
       Result := GetMangasPROJECTInfoFromURL
     else
-    if WebsiteID = MANGAREADER_POR_ID then
+    if MangaSiteID = MANGAREADER_POR_ID then
       Result := GetMangaREADER_PORInfoFromURL
     else
-    if (WebsiteID = NINEMANGA_ID) or
-      (WebsiteID = NINEMANGA_ES_ID) or
-      (WebsiteID = NINEMANGA_CN_ID) or
-      (WebsiteID = NINEMANGA_RU_ID) or
-      (WebsiteID = NINEMANGA_DE_ID) or
-      (WebsiteID = NINEMANGA_IT_ID) or
-      (WebsiteID = NINEMANGA_BR_ID) then
-      Result := GetNineMangaInfoFromURL
-    else
-    if WebsiteID = JAPANSHIN_ID then
+    if MangaSiteID = JAPANSHIN_ID then
       Result := GetJapanShinInfoFromURL
     else
-    if WebsiteID = JAPSCAN_ID then
-      Result := GetJapscanInfoFromURL
-    else
-    if WebsiteID = CENTRUMMANGI_PL_ID then
+    if MangaSiteID = CENTRUMMANGI_PL_ID then
       Result := GetCentrumMangi_PLInfoFromURL
     else
-    if WebsiteID = MANGALIB_PL_ID then
+    if MangaSiteID = MANGALIB_PL_ID then
       Result := GetMangaLib_PLInfoFromURL
     else
-    if WebsiteID = ONEMANGA_ID then
+    if MangaSiteID = ONEMANGA_ID then
       Result := GetOneMangaInfoFromURL
     else
-    if WebsiteID = MANGATOWN_ID then
+    if MangaSiteID = MANGATOWN_ID then
       Result := GetMangaTownInfoFromURL
     else
-    if WebsiteID = MANGAOKU_ID then
+    if MangaSiteID = MANGAOKU_ID then
       Result := GetMangaOkuInfoFromURL
     else
-    if WebsiteID = MYREADINGMANGAINFO_ID then
-      Result := GetMyReadingMangaInfoInfoFromURL
-    else
-    if WebsiteID = IKOMIK_ID then
+    if MangaSiteID = IKOMIK_ID then
       Result := GetIKomikInfoFromURL
     else
-    if WebsiteID = NHENTAI_ID then
+    if MangaSiteID = NHENTAI_ID then
       Result := GetNHentaiInfoFromURL
     else
-    if WebsiteID = MANGAMINT_ID then
-      Result := GetMangaMintInfoFromURL
-    else
-    if WebsiteID = UNIXMANGA_ID then
+    if MangaSiteID = UNIXMANGA_ID then
       Result := GetUnixMangaInfoFromURL
     else
-    if WebsiteID = EXTREMEMANGAS_ID then
+    if MangaSiteID = EXTREMEMANGAS_ID then
       Result := GetExtremeMangasInfoFromURL
     else
-    if WebsiteID = MANGAHOST_ID then
+    if MangaSiteID = MANGAHOST_ID then
       Result := GetMangaHostInfoFromURL
     else
-    if (WebsiteID = PORNCOMIX_ID) or
-      (WebsiteID = XXCOMICS_ID) or
-      (WebsiteID = XXCOMICSMT_ID) or
-      (WebsiteID = XXCOMICS3D_ID) or
-      (WebsiteID = PORNCOMIXRE_ID) or
-      (WebsiteID = PORNCOMIXIC_ID) or
-      (WebsiteID = PORNXXXCOMICS_ID) then
-      Result := GetPornComixInfoFromURL(GetMangaSiteID(website))
-    else
-    if WebsiteID = MANGAKU_ID then
+    if MangaSiteID = MANGAKU_ID then
       Result := GetMangaKuInfoFromURL
     else
-    if WebsiteID = MANGAAT_ID then
+    if MangaSiteID = MANGAAT_ID then
       Result := GetMangaAtInfoFromURL
     else
-    if WebsiteID = READMANGATODAY_ID then
-      Result := GetReadMangaTodayInfoFromURL
-    else
-    if WebsiteID = DYNASTYSCANS_ID then
+    if MangaSiteID = DYNASTYSCANS_ID then
       Result := GetDynastyScansInfoFromURL
     else
     begin
@@ -1514,7 +1272,8 @@ begin
   end;
 
   with mangaInfo do begin
-    if mangaInfo.link = '' then mangaInfo.link := RemoveHostFromURL(mangaInfo.url);
+    if link = '' then
+      link := RemoveHostFromURL(mangaInfo.url);
 
     // cleanup info
     coverLink := CleanURL(coverLink);
@@ -1606,45 +1365,45 @@ begin
   end;
 end;
 
-procedure TMangaInformation.SyncMinorInfoToData(const DataProcess: TDataProcess; const index: Cardinal);
+procedure TMangaInformation.SyncMinorInfoToData(const ADataProcess: TDataProcess; const AIndex: Cardinal);
 begin
   // sync info to data
   {$IFDEF DOWNLOADER}
-  if not dataProcess.isFilterAllSites then
+  if not ADataProcess.isFilterAllSites then
   {$ENDIF}
-    DataProcess.Data.Strings[index] := SetParams(
-      [DataProcess.Param[index, DATA_PARAM_TITLE],
-      DataProcess.Param[index, DATA_PARAM_LINK],
-      DataProcess.Param[index, DATA_PARAM_AUTHORS],
-      DataProcess.Param[index, DATA_PARAM_ARTISTS],
-      DataProcess.Param[index, DATA_PARAM_GENRES],
+    ADataProcess.Data.Strings[AIndex] := SetParams(
+      [ADataProcess.Param[AIndex, DATA_PARAM_TITLE],
+      ADataProcess.Param[AIndex, DATA_PARAM_LINK],
+      ADataProcess.Param[AIndex, DATA_PARAM_AUTHORS],
+      ADataProcess.Param[AIndex, DATA_PARAM_ARTISTS],
+      ADataProcess.Param[AIndex, DATA_PARAM_GENRES],
       mangaInfo.status,
-      DataProcess.Param[index, DATA_PARAM_SUMMARY],
+      ADataProcess.Param[AIndex, DATA_PARAM_SUMMARY],
       IntToStr(mangaInfo.numChapter),
       {$IFDEF DOWNLOADER}
-      DataProcess.Param[index, DATA_PARAM_JDN],
+      ADataProcess.Param[AIndex, DATA_PARAM_JDN],
       {$ELSE}
       '0',
       {$ENDIF}
       '0']);
   // then break it into parts
-  dataProcess.BreakDataToParts(index);
+  ADataProcess.BreakDataToParts(AIndex);
 end;
 
-procedure TMangaInformation.SyncInfoToData(const DataProcess: TDataProcess; const index: Cardinal);
+procedure TMangaInformation.SyncInfoToData(const ADataProcess: TDataProcess; const AIndex: Cardinal);
 begin
   // sync info to data
   {$IFDEF DOWNLOADER}
-  if not dataProcess.isFilterAllSites then
+  if not ADataProcess.isFilterAllSites then
   {$ENDIF}
   begin
     if Trim(mangaInfo.title) = '' then
-      mangaInfo.title := DataProcess.Param[index, DATA_PARAM_TITLE];
-    DataProcess.Data.Strings[index] := SetParams(
-      //[DataProcess.Param[index, DATA_PARAM_TITLE],
+      mangaInfo.title := ADataProcess.Param[AIndex, DATA_PARAM_TITLE];
+    ADataProcess.Data.Strings[AIndex] := SetParams(
+      //[ADataProcess.Param[AIndex, DATA_PARAM_TITLE],
       //sync title as well, some site possible to change title or when mangainfo script not work
       [mangaInfo.title,
-      DataProcess.Param[index, DATA_PARAM_LINK],
+      ADataProcess.Param[AIndex, DATA_PARAM_LINK],
       mangaInfo.authors,
       mangaInfo.artists,
       mangaInfo.genres,
@@ -1652,37 +1411,37 @@ begin
       StringFilter(mangaInfo.summary),
       IntToStr(mangaInfo.numChapter),
       {$IFDEF DOWNLOADER}
-      DataProcess.Param[index, DATA_PARAM_JDN],
+      ADataProcess.Param[AIndex, DATA_PARAM_JDN],
       {$ELSE}
       '0',
       {$ENDIF}
       '0']);
   end;
   // then break it into parts
-  dataProcess.BreakDataToParts(index);
+  ADataProcess.BreakDataToParts(AIndex);
 end;
 
-procedure TMangaInformation.SyncInfoToData(const DataProcess: TDBDataProcess);
+procedure TMangaInformation.SyncInfoToData(const ADataProcess: TDBDataProcess);
 begin
-  if Assigned(DataProcess) then
+  if Assigned(ADataProcess) then
     with mangaInfo do
-      DataProcess.UpdateData(title, link, authors, artists, genres, status, summary,
+      ADataProcess.UpdateData(title, link, authors, artists, genres, status, summary,
         numChapter, website);
 end;
 
-procedure TMangaInformation.AddInfoToDataWithoutBreak(const Name, link: String;
-  const DataProcess: TDataProcess);
+procedure TMangaInformation.AddInfoToDataWithoutBreak(const AName, ALink: String;
+  const ADataProcess: TDataProcess);
 var
   S: String;
 begin
   if mangaInfo.title <> '' then
     S := mangaInfo.title
   else
-    S := Name;
+    S := AName;
 
-  DataProcess.Data.Add(RemoveStringBreaks(SetParams([
+  ADataProcess.Data.Add(RemoveStringBreaks(SetParams([
     S,
-    link,
+    ALink,
     mangaInfo.authors,
     mangaInfo.artists,
     mangaInfo.genres,
@@ -1698,16 +1457,16 @@ begin
     ])));
 end;
 
-procedure TMangaInformation.AddInfoToData(const Name, link: String; const DataProcess: TDataProcess);
+procedure TMangaInformation.AddInfoToData(const AName, Alink: String; const ADataProcess: TDataProcess);
 var
   l: TStringList;
 begin
   l := TStringList.Create;
-  DataProcess.Data.Add(
+  ADataProcess.Data.Add(
     RemoveStringBreaks(
     SetParams(
-    [Name,
-    link,
+    [AName,
+    Alink,
     mangaInfo.authors,
     mangaInfo.artists,
     mangaInfo.genres,
@@ -1716,37 +1475,37 @@ begin
     IntToStr(mangaInfo.numChapter),
     IntToStr(GetCurrentJDN),
     '0'])));
-  GetParams(l, DataProcess.Data.Strings[DataProcess.Data.Count - 1]);
-  DataProcess.title.Add(l.Strings[DATA_PARAM_TITLE]);
-  DataProcess.link.Add(l.Strings[DATA_PARAM_LINK]);
-  DataProcess.authors.Add(l.Strings[DATA_PARAM_AUTHORS]);
-  DataProcess.artists.Add(l.Strings[DATA_PARAM_ARTISTS]);
-  DataProcess.genres.Add(l.Strings[DATA_PARAM_GENRES]);
-  DataProcess.status.Add(l.Strings[DATA_PARAM_STATUS]);
-  DataProcess.summary.Add(l.Strings[DATA_PARAM_SUMMARY]);
+  GetParams(l, ADataProcess.Data.Strings[ADataProcess.Data.Count - 1]);
+  ADataProcess.title.Add(l.Strings[DATA_PARAM_TITLE]);
+  ADataProcess.link.Add(l.Strings[DATA_PARAM_LINK]);
+  ADataProcess.authors.Add(l.Strings[DATA_PARAM_AUTHORS]);
+  ADataProcess.artists.Add(l.Strings[DATA_PARAM_ARTISTS]);
+  ADataProcess.genres.Add(l.Strings[DATA_PARAM_GENRES]);
+  ADataProcess.status.Add(l.Strings[DATA_PARAM_STATUS]);
+  ADataProcess.summary.Add(l.Strings[DATA_PARAM_SUMMARY]);
   {$IFDEF DOWNLOADER}
-  DataProcess.jdn.Add(Pointer(StrToInt(l.Strings[DATA_PARAM_JDN])));
+  ADataProcess.jdn.Add(Pointer(StrToInt(l.Strings[DATA_PARAM_JDN])));
   {$ELSE}
   DataProcess.jdn.Add(Pointer(StrToInt('0')));
   {$ENDIF}
   l.Free;
 end;
 
-procedure TMangaInformation.AddInfoToData(const Title, Link: String; const DataProcess: TDBDataProcess);
+procedure TMangaInformation.AddInfoToData(const ATitle, ALink: String; const ADataProcess: TDBDataProcess);
 begin
-  if Assigned(DataProcess) then
+  if Assigned(ADataProcess) then
   begin
-    if (mangaInfo.title = '') and (Title <> '') then mangaInfo.title := Title;
-    if (mangaInfo.link = '') and (Link <> '') then mangaInfo.link := Link;
+    if (mangaInfo.title = '') and (ATitle <> '') then mangaInfo.title := ATitle;
+    if (mangaInfo.link = '') and (ALink <> '') then mangaInfo.link := ALink;
     with mangaInfo do
-      DataProcess.AddData(title, link, authors, artists, genres, status,
+      ADataProcess.AddData(title, link, authors, artists, genres, status,
         StringBreaks(summary), numChapter, Now);
   end;
 end;
 
-function TMangaInformation.GetPage(var output: TObject; URL: String; const Reconnect: Integer): Boolean;
+function TMangaInformation.GetPage(var AOutput: TObject; AURL: String; const AReconnect: Integer): Boolean;
 begin
-  Result := uBaseUnit.GetPage(FHTTP, output, URL, Reconnect);
+  Result := uBaseUnit.GetPage(FHTTP, AOutput, AURL, AReconnect);
 end;
 
 end.

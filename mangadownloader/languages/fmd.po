@@ -1,6 +1,19 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
+#: batoto.rs_serverselection
+msgid "Image server:"
+msgstr ""
+
+#: batoto.rs_serverselectionitems
+msgid ""
+"Auto\n"
+"Image Server EU\n"
+"Image Server NA\n"
+"CDN (default)\n"
+"CDN2 (testing)\n"
+msgstr ""
+
 #: batoto.rs_showalllang
 msgid "Show all language"
 msgstr ""
@@ -45,6 +58,7 @@ msgid "Unknown"
 msgstr ""
 
 #: frmaccountmanager.rs_valid
+msgctxt "frmaccountmanager.rs_valid"
 msgid "OK"
 msgstr ""
 
@@ -290,6 +304,18 @@ msgstr ""
 
 #: frmshutdowncounter.rs_lblmessageshutdown
 msgid "System will shutdown in %d second."
+msgstr ""
+
+#: kissmanga.rs_kissmanga_initvector
+msgid "Initialization Vector:"
+msgstr ""
+
+#: kissmanga.rs_kissmanga_key
+msgid "Key:"
+msgstr ""
+
+#: kissmanga.rs_kissmanga_usegoogledcp
+msgid "Use Google DCP"
 msgstr ""
 
 #: mangafox.rs_removewatermark
@@ -562,6 +588,10 @@ msgctxt "TMAINFORM.CBOPTIONAUTOCHECKLATESTVERSION.CAPTION"
 msgid "Auto check for latest version "
 msgstr ""
 
+#: tmainform.cboptionautoopenfavstartup.caption
+msgid "Open Favorites at startup"
+msgstr ""
+
 #: tmainform.cboptionchangeunicodecharacter.caption
 msgctxt "TMAINFORM.CBOPTIONCHANGEUNICODECHARACTER.CAPTION"
 msgid "Replace all unicode character with"
@@ -596,6 +626,10 @@ msgstr ""
 msgid "Enable live search (slow on long list)"
 msgstr ""
 
+#: tmainform.cboptionminimizeonstart.caption
+msgid "Minimize on start"
+msgstr ""
+
 #: tmainform.cboptionminimizetotray.caption
 msgid "Minimize to tray"
 msgstr ""
@@ -612,6 +646,10 @@ msgstr ""
 msgid "Remove manga name from chapter"
 msgstr ""
 
+#: tmainform.cboptionshowballoonhint.caption
+msgid "Show balloon hint"
+msgstr ""
+
 #: tmainform.cboptionshowdeletetaskdialog.caption
 msgid "Delete task/favorite"
 msgstr ""
@@ -622,6 +660,10 @@ msgstr ""
 
 #: tmainform.cboptionshowdownloadtoolbar.caption
 msgid "Show downloads toolbar"
+msgstr ""
+
+#: tmainform.cboptionshowdownloadtoolbardeleteall.caption
+msgid "Show \"Delete all completed tasks\" in downloads toolbar"
 msgstr ""
 
 #: tmainform.cboptionshowquitdialog.caption
@@ -975,6 +1017,11 @@ msgstr ""
 msgid "This work usually involves intimate relationships between women."
 msgstr ""
 
+#: tmainform.ckoptionsalwaysstarttaskfromfailedchapters.caption
+msgctxt "tmainform.ckoptionsalwaysstarttaskfromfailedchapters.caption"
+msgid "Always start task from failed chapters"
+msgstr ""
+
 #: tmainform.edcustomgenres.texthint
 msgid "Input custom genres, separated by comma"
 msgstr ""
@@ -1053,10 +1100,6 @@ msgstr ""
 
 #: tmainform.edoptionpass.texthint
 msgid "Proxy password"
-msgstr ""
-
-#: tmainform.edoptionport.texthint
-msgid "Proxy Port"
 msgstr ""
 
 #: tmainform.edoptionuser.texthint
@@ -1264,7 +1307,7 @@ msgid ""
 msgstr ""
 
 #: tmainform.lboptionmaxparallel.caption
-msgid "Number of downloaded tasks at the same time (Max: 8)"
+msgid "Number of downloaded tasks at the same time"
 msgstr ""
 
 #: tmainform.lboptionmaxretry.caption
@@ -1272,7 +1315,7 @@ msgid "Number of retry times if tasks have download problems (-1 = always retry)
 msgstr ""
 
 #: tmainform.lboptionmaxthread.caption
-msgid "Number of downloaded files per task at the same time (Max: 32)"
+msgid "Number of downloaded files per task at the same time"
 msgstr ""
 
 #: tmainform.lboptionnewmangatime.caption
@@ -1308,6 +1351,10 @@ msgstr ""
 
 #: tmainform.lboptionrenamedigits.caption
 msgid "Rename  digits"
+msgstr ""
+
+#: tmainform.lboptionretryfailedtask.caption
+msgid "Number of retry times if task failed"
 msgstr ""
 
 #: tmainform.lboptionuser.caption
@@ -1353,6 +1400,10 @@ msgstr ""
 msgid "Abort"
 msgstr ""
 
+#: tmainform.michapterlistascending.caption
+msgid "Ascending"
+msgstr ""
+
 #: tmainform.michapterlistcheckall.caption
 msgctxt "tmainform.michapterlistcheckall.caption"
 msgid "Check all"
@@ -1360,6 +1411,10 @@ msgstr ""
 
 #: tmainform.michapterlistcheckselected.caption
 msgid "Check selected"
+msgstr ""
+
+#: tmainform.michapterlistdescending.caption
+msgid "Descending"
 msgstr ""
 
 #: tmainform.michapterlistfilter.caption
@@ -1407,10 +1462,12 @@ msgid "Task + Data + Favorite"
 msgstr ""
 
 #: tmainform.midownloaddisable.caption
+msgctxt "tmainform.midownloaddisable.caption"
 msgid "Disable"
 msgstr ""
 
 #: tmainform.midownloadenable.caption
+msgctxt "tmainform.midownloadenable.caption"
 msgid "Enable"
 msgstr ""
 
@@ -1459,9 +1516,19 @@ msgctxt "TMAINFORM.MIFAVORITESDELETE.CAPTION"
 msgid "Delete"
 msgstr ""
 
+#: tmainform.mifavoritesdisable.caption
+msgctxt "tmainform.mifavoritesdisable.caption"
+msgid "Disable"
+msgstr ""
+
 #: tmainform.mifavoritesdownloadall.caption
 msgctxt "tmainform.mifavoritesdownloadall.caption"
 msgid "Download all"
+msgstr ""
+
+#: tmainform.mifavoritesenable.caption
+msgctxt "tmainform.mifavoritesenable.caption"
+msgid "Enable"
 msgstr ""
 
 #: tmainform.mifavoritesopenfolder.caption
@@ -1654,22 +1721,22 @@ msgctxt "tmainform.tsdownload.caption"
 msgid "Downloads"
 msgstr ""
 
-#: tmainform.tsdownloadfilter.caption
-msgid ">>"
-msgstr ""
-
 #: tmainform.tsfavorites.caption
 msgctxt "tmainform.tsfavorites.caption"
 msgid "Favorites"
 msgstr ""
 
-#: tmainform.tsfilter.caption
-msgctxt "tmainform.tsfilter.caption"
+#: tmainform.tsgeneral.caption
+msgid "General"
+msgstr ""
+
+#: tmainform.tsinfofilteradv.caption
+msgctxt "tmainform.tsinfofilteradv.caption"
 msgid "Filter"
 msgstr ""
 
-#: tmainform.tsgeneral.caption
-msgid "General"
+#: tmainform.tsinfomanga.caption
+msgid "Info"
 msgstr ""
 
 #: tmainform.tsinformation.caption
@@ -1678,10 +1745,6 @@ msgstr ""
 
 #: tmainform.tslog.caption
 msgid "Log"
-msgstr ""
-
-#: tmainform.tsmangalist.caption
-msgid "Manga List"
 msgstr ""
 
 #: tmainform.tsmisc.caption
@@ -1794,6 +1857,15 @@ msgstr ""
 #: tnewchapter.btqueue.caption
 msgctxt "TNEWCHAPTER.BTQUEUE.CAPTION"
 msgid "&Add to queue"
+msgstr ""
+
+#: tselectdirectoryform.btok.caption
+msgctxt "tselectdirectoryform.btok.caption"
+msgid "OK"
+msgstr ""
+
+#: tselectdirectoryform.caption
+msgid "Select directory"
 msgstr ""
 
 #: tshutdowncounterform.btabort.caption

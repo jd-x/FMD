@@ -10,10 +10,6 @@ uses
 
 implementation
 
-var
-  yomangalockget: TRTLCriticalSection;
-  yomangacookies: String;
-
 const
   dirurl = '/directory/';
   dirurlreader = '/reader/directory/';
@@ -21,13 +17,11 @@ const
   dirurlslide = '/slide/directory/';
   dirurlslideU = '/Slide/directory/';
   dirurlonline = '/online/directory/';
+  dirurlhelvetica = '/r/directory/';    
 
 function GETWithCookie(const AHTTP: THTTPSendThread; const AURL: String;
   const Module: TModuleContainer): Boolean;
 begin
-  if Module.Website = 'YoManga' then
-    Result := Cloudflare.GETCF(AHTTP, AURL, yomangacookies, yomangalockget)
-  else
   if ((Module.Website = 'SeinagiAdultoFansub') or
       (Module.Website = 'TripleSevenScan'))
     and (Pos(dirurl, AURL) = 0)then
@@ -38,8 +32,7 @@ end;
 
 function GetDirURL(const AWebsite: String): String;
 begin
-  if (AWebsite = 'YoManga') or
-     (AWebsite = 'GoManga') or
+  if (AWebsite = 'GoManga') or
      (AWebsite = 'Jaiminisbox') or
      (AWebsite = 'TripleSevenScan') then
     Result := dirurlreader
@@ -60,11 +53,14 @@ begin
      (AWebsite = 'SeinagiFansub') then
     Result := dirurlonline
   else
+  if(AWebsite = 'HelveticaScans') then
+    Result := dirurlhelvetica     
+  else
     Result := dirurl;
 end;
 
 function GetDirectoryPageNumber(const MangaInfo: TMangaInformation;
-  var Page: Integer; const Module: TModuleContainer): Integer;
+  var Page: Integer; const WorkPtr: Integer; const Module: TModuleContainer): Integer;
 var
   v: IXQValue;
   p: Integer;
@@ -223,15 +219,6 @@ begin
   end;
 end;
 
-function DownloadImageWithCookie(const DownloadThread: TDownloadThread;
-  const AURL, APath, AName: String; const Module: TModuleContainer): Boolean;
-begin
-  Result := False;
-  if DownloadThread = nil then Exit;
-  if GETWithCookie(DownloadThread.FHTTP, AURL, Module) then
-    SaveImageStreamToFile(DownloadThread.FHTTP, APath, AName);
-end;
-
 procedure RegisterModule;
 
   function AddWebsiteModule(AWebsite, ARootURL: String): TModuleContainer;
@@ -253,18 +240,12 @@ begin
   AddWebsiteModule('PowerManga', 'http://read.powermanga.org');
 
   AddWebsiteModule('Shoujosense', 'http://reader.shoujosense.com');
-  with AddWebsiteModule('YoManga', 'http://yomanga.co') do
-  begin
-    MaxTaskLimit := 1;
-    MaxConnectionLimit := 4;
-    OnDownloadImage := @DownloadImageWithCookie;
-  end;
-  AddWebsiteModule('RawYoManga', 'http://raws.yomanga.co');
   AddWebsiteModule('GoManga', 'http://gomanga.co');
   AddWebsiteModule('OneTimeScans', 'http://otscans.com');
   AddWebsiteModule('SenseScans', 'http://reader.sensescans.com');
   AddWebsiteModule('Jaiminisbox', 'https://jaiminisbox.com');
   AddWebsiteModule('KireiCake', 'https://reader.kireicake.com');
+  AddWebsiteModule('HelveticaScans', 'http://helveticascans.com');    
 
   //es-san
   AddWebsiteModule('DangoOnlineNoFansub', 'http://lector.dangolinenofansub.com');
@@ -273,7 +254,7 @@ begin
   AddWebsiteModule('MangaWorksFansub', 'http://lector.mangaworksfansub.net');
   AddWebsiteModule('MasterPieceScans', 'http://reader.manga2me.net');
   AddWebsiteModule('MenudoFansub', 'http://www.menudo-fansub.com');
-  AddWebsiteModule('NeoProjectScan', 'http://npscan.scans-es.com');
+  AddWebsiteModule('NeoProjectScan', 'http://npscan.mangaea.net');
   AddWebsiteModule('Pzykosis666HFansub', 'http://pzykosis666hfansub.com');
   AddWebsiteModule('R15TeamScanlation', 'http://www.r15team.com');
   AddWebsiteModule('SantosScan', 'http://santosfansub.com');
@@ -284,10 +265,6 @@ begin
 end;
 
 initialization
-  InitCriticalSection(yomangalockget);
   RegisterModule;
-
-finalization
-  DoneCriticalsection(yomangalockget);
 
 end.

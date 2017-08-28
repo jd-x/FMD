@@ -25,10 +25,27 @@ var
   locklogin: TRTLCriticalSection;
   showalllang: Boolean = False;
   showscangroup: Boolean = False;
+  serverselection: Integer = 0;
+
+const
+  serverselectionvalue : array [0..4] of String = (
+    'img',
+    'img3',
+    'img4',
+    'cdn',
+    'cdn2'
+    );
 
 resourcestring
   RS_ShowAllLang = 'Show all language';
   RS_ShowScanGroup = 'Show scanlation group';
+  RS_ServerSelection = 'Image server:';
+  RS_ServerSelectionItems =
+    'Auto' + LineEnding +
+    'Image Server EU' + LineEnding +
+    'Image Server NA' + LineEnding +
+    'CDN (default)' + LineEnding +
+    'CDN2 (testing)';
 
 function Login(const AHTTP: THTTPSendThread): Boolean;
 var
@@ -135,14 +152,14 @@ begin
 end;
 
 function GetDirectoryPageNumber(const MangaInfo: TMangaInformation;
-  var Page: Integer; const Module: TModuleContainer): Integer;
+  var Page: Integer; const WorkPtr: Integer; const Module: TModuleContainer): Integer;
 var
   s: String;
 begin
   Result := NET_PROBLEM;
   Page := 1;
   if MangaInfo = nil then Exit(UNKNOWN_ERROR);
-  if MangaInfo.FHTTP.GET(Module.RootURL + dirurls[Module.CurrentDirectoryIndex] +
+  if MangaInfo.FHTTP.GET(Module.RootURL + dirurls[WorkPtr] +
     dirparam + IntToStr(perpage))
   then begin
     Result := NO_ERROR;
@@ -295,6 +312,8 @@ begin
       IntToStr(DownloadThread.WorkId + 1);
     Headers.Values['Referer'] := ' ' + Module.RootURL + '/reader';
     Cookies.Text := Account.Cookies['Batoto'];
+    if serverselection <> 0 then
+      Cookies.Values['server_selection'] := serverselectionvalue[serverselection];
     if GET(rurl) then begin
       Result := True;
       with TXQueryEngineHTML.Create(Document) do
@@ -307,14 +326,19 @@ begin
   end;
 end;
 
+function BeforeDownloadImage(const DownloadThread: TDownloadThread;
+    var AURL: String; const Module: TModuleContainer): Boolean;
+begin
+  AURL := FillHost('http://' + serverselectionvalue[serverselection] + '.bato.to', AURL);
+  Result := True;
+end;
+
 procedure RegisterModule;
 begin
   with AddModule do
   begin
     Website := modulename;
     RootURL := urlroot;
-    MaxTaskLimit := 1;
-    MaxConnectionLimit := 1;
     AccountSupport := True;
     SortedList := True;
     InformationAvailable := True;
@@ -324,9 +348,11 @@ begin
     OnGetInfo := @GetInfo;
     OnGetPageNumber := @GetPageNumber;
     OnGetImageURL := @GetImageURL;
+    OnBeforeDownloadImage := @BeforeDownloadImage;
     OnLogin := @Login;
     AddOptionCheckBox(@showalllang,'ShowAllLang', @RS_ShowAllLang);
     AddOptionCheckBox(@showscangroup,'ShowScanGroup', @RS_ShowScanGroup);
+    AddOptionComboBox(@serverselection,'ServerSelection', @RS_ServerSelection, @RS_ServerSelectionItems);
   end;
 end;
 

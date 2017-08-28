@@ -18,10 +18,10 @@ uses
   {$else}
   UTF8Process,
   {$endif}
-  SysUtils, Classes, Graphics, lazutf8classes, LazFileUtils,
-  LConvEncoding, strutils, dateutils, base64, fpjson, jsonparser, jsonscanner,
-  FastHTMLParser, fgl, RegExpr, synautil, httpsend, blcksock, ssl_openssl, synacode,
-  MultiLog, FPimage, GZIPUtils, uMisc, httpsendthread, FMDOptions,
+  SysUtils, Classes, Graphics, lazutf8classes, LazFileUtils, LConvEncoding,
+  strutils, dateutils, variants, base64, fpjson, jsonparser, jsonscanner,
+  FastHTMLParser, fgl, RegExpr, synautil, httpsend, blcksock, ssl_openssl,
+  synacode, MultiLog, FPimage, GZIPUtils, uMisc, httpsendthread, FMDOptions,
   simplehtmltreeparser, xquery, xquery_json, ImgInfos, NaturalSortUnit;
 
 const
@@ -31,8 +31,8 @@ const
 
   UTF8BOM = #$EF#$BB#$BF;
 
-  DATA_PARAM_TITLE      = 0;
-  DATA_PARAM_LINK       = 1;
+  DATA_PARAM_LINK       = 0;
+  DATA_PARAM_TITLE      = 1;
   DATA_PARAM_AUTHORS    = 2;
   DATA_PARAM_ARTISTS    = 3;
   DATA_PARAM_GENRES     = 4;
@@ -232,178 +232,98 @@ const
 
   ANIMEA_ID              = 0;
   OURMANGA_ID            = 1;
-  MANGA24H_ID            = 2;
-  VNSHARING_ID           = 3;
-  FAKKU_ID               = 4;
-  TRUYEN18_ID            = 5;
-  TRUYENTRANHTUAN_ID     = 6;
-  TURKCRAFT_ID           = 7;
-  EATMANGA_ID            = 8;
-  STARKANA_ID            = 9;
-  BLOGTRUYEN_ID          = 10;
-  ESMANGAHERE_ID         = 11;
-  ANIMEEXTREMIST_ID      = 12;
-  HUGEMANGA_ID           = 13;
-  S2SCAN_ID              = 14;
-  IMANHUA_ID             = 15;
-  MABUNS_ID              = 16;
-  MANGAESTA_ID           = 17;
-  CENTRALDEMANGAS_ID     = 18;
-  EGSCANS_ID             = 19;
-  MANGAAR_ID             = 20;
-  MANGAAE_ID             = 21;
-  ANIMESTORY_ID          = 22;
-  LECTUREENLIGNE_ID      = 23;
-  SCANMANGA_ID           = 24;
-  MANGAGO_ID             = 25;
-  DM5_ID                 = 26;
+  VNSHARING_ID           = 2;
+  TRUYEN18_ID            = 3;
+  TURKCRAFT_ID           = 4;
+  STARKANA_ID            = 5;
+  ESMANGAHERE_ID         = 6;
+  ANIMEEXTREMIST_ID      = 7;
+  S2SCAN_ID              = 8;
+  IMANHUA_ID             = 9;
+  CENTRALDEMANGAS_ID     = 10;
+  EGSCANS_ID             = 11;
+  MANGAAR_ID             = 12;
+  ANIMESTORY_ID          = 13;
+  LECTUREENLIGNE_ID      = 14;
+  SCANMANGA_ID           = 15;
+  DM5_ID                 = 16;
+  KIVMANGA_ID            = 17;
+  MEINMANGA_ID           = 18;
+  MANGASPROJECT_ID       = 19;
+  MANGAREADER_POR_ID     = 20;
+  JAPANSHIN_ID           = 21;
+  CENTRUMMANGI_PL_ID     = 22;
+  MANGALIB_PL_ID         = 23;
+  ONEMANGA_ID            = 24;
+  MANGATOWN_ID           = 25;
+  MANGAOKU_ID            = 26;
+  IKOMIK_ID              = 27;
+  NHENTAI_ID             = 28;
+  UNIXMANGA_ID           = 29;
+  EXTREMEMANGAS_ID       = 30;
+  MANGAHOST_ID           = 31;
+  MANGAKU_ID             = 32;
+  MANGAAT_ID             = 33;
+  DYNASTYSCANS_ID        = 34;
 
-  KIVMANGA_ID            = 27;
-  MEINMANGA_ID           = 28;
-  MANGASPROJECT_ID       = 29;
-  MANGAREADER_POR_ID     = 30;
-  NINEMANGA_ID           = 31;
-  NINEMANGA_ES_ID        = 32;
-  NINEMANGA_CN_ID        = 33;
-  NINEMANGA_RU_ID        = 34;
-  NINEMANGA_DE_ID        = 35;
-  NINEMANGA_IT_ID        = 36;
-  NINEMANGA_BR_ID        = 37;
-  JAPANSHIN_ID           = 38;
-  JAPSCAN_ID             = 39;
-  CENTRUMMANGI_PL_ID     = 40;
-  MANGALIB_PL_ID         = 41;
-  ONEMANGA_ID            = 42;
-  MANGATOWN_ID           = 43;
-  MANGAOKU_ID            = 44;
-  MYREADINGMANGAINFO_ID  = 45;
-  IKOMIK_ID              = 46;
-  NHENTAI_ID             = 47;
-  MANGAMINT_ID           = 48;
-  UNIXMANGA_ID           = 49;
-  EXTREMEMANGAS_ID       = 50;
-  MANGAHOST_ID           = 51;
-  PORNCOMIX_ID           = 52;
-  PORNCOMIXRE_ID         = 53;
-  PORNCOMIXIC_ID         = 54;
-  XXCOMICS_ID            = 55;
-  XXCOMICSMT_ID          = 56;
-  XXCOMICS3D_ID          = 57;
-  PORNXXXCOMICS_ID       = 58;
-  MANGAKU_ID             = 59;
-  MANGAAT_ID             = 60;
-  READMANGATODAY_ID      = 61;
-  DYNASTYSCANS_ID        = 62;
-
-  WebsiteRoots: array [0..62] of array [0..1] of String = (
+  WebsiteRoots: array [0..34] of array [0..1] of String = (
     ('AnimeA', 'http://manga.animea.net'),
     ('OurManga', 'http://www.ourmanga.com'),
-    ('Manga24h', 'http://manga24h.com'),
     ('VnSharing', 'http://truyen.vnsharing.net'),
-    ('Fakku', 'https://www.fakku.net'),
     ('Truyen18', 'http://www.truyen18.org'),
-    ('TruyenTranhTuan', 'http://truyentranhtuan.com'),
     ('Turkcraft', 'http://turkcraft.com'),
-    ('EatManga', 'http://eatmanga.com'),
     ('Starkana', 'http://starkana.jp'),
-    ('BlogTruyen', 'http://blogtruyen.com'),
     ('ESMangaHere', 'http://es.mangahere.co'),
     ('AnimExtremist', 'http://www.animextremist.com'),
-    ('HugeManga', 'http://hugemanga.com'),
     ('S2Scans', 'http://reader.s2smanga.com'),
     ('imanhua', 'http://www.imanhua.com'),
-    ('Mabuns', 'http://www.mabuns.web.id'),
-    ('MangaEsta', 'http://www.mangaesta.net'),
     ('CentralDeMangas', 'http://centraldemangas.com.br'),
     ('EGScans', 'http://read.egscans.com'),
     ('MangaAr', 'http://manga-ar.net'),
-    ('MangaAe', 'http://www.manga.ae'),
     ('AnimeStory', 'http://www.anime-story.com'),
     ('Lecture-En-Ligne', 'http://www.lecture-en-ligne.com'),
     ('ScanManga', 'http://www.scan-manga.com'),
-    ('MangaGo', 'http://www.mangago.me'),
     ('DM5', 'http://www.dm5.com'),
     ('KivManga', 'http://www.kivmanga.com'),
     ('MeinManga', 'http://www.meinmanga.com/'),
     ('MangasPROJECT', 'http://mangaproject.xpg.uol.com.br'),
     ('MangaREADER_POR', 'http://www.mangareader.com.br'),
-    ('NineManga', 'http://www.ninemanga.com'),
-    ('NineManga_ES', 'http://es.ninemanga.com'),
-    ('NineManga_CN', 'http://cn.ninemanga.com'),
-    ('NineManga_RU', 'http://ru.ninemanga.com'),
-    ('NineManga_DE', 'http://de.ninemanga.com'),
-    ('NineManga_IT', 'http://it.ninemanga.com'),
-    ('NineManga_BR', 'http://br.ninemanga.com'),
     ('Japan-Shin', 'http://www.japan-shin.com'),
-    ('Japscan', 'http://www.japscan.com'),
     ('Centrum-Mangi_PL', 'http://centrum-mangi.pl'),
     ('Manga-Lib_PL', 'http://www.manga-lib.pl/index.php'),
     ('OneManga', 'http://www.onemanga2.com'),
     ('MangaTown', 'http://www.mangatown.com'),
     ('MangaOku', 'http://www.mangaoku.net'),
-    ('MyReadingMangaInfo', 'https://myreadingmanga.info'),
     ('I-Komik', 'http://www.i-komik.com'),
     ('NHentai', 'http://nhentai.net'),
-    ('MangaMint', 'http://www.mangamint.com'),
     ('UnixManga', 'http://unixmanga.co'),
     ('ExtremeMangas', 'http://www.extrememangas.com'),
     ('MangaHost', 'http://br.mangahost.com'),
-    ('PornComix', 'http://porncomix.wf'),
-    ('PornComixRE', 'http://porncomix.re'),
-    ('PornComixIC', 'http://incest.porncomix.re'),
-    ('XXComics', 'http://gallery.xxcomics.net'),
-    ('XXComicsMT', 'http://milftoon.xxcomics.net'),
-    ('XXComics3D', 'http://3dincest.xxcomics.net'),
-    ('PornXXXComics', 'http://pornxxxcomics.com'),
     ('MangaKu', 'http://mangaku.web.id'),
     ('MangaAt', 'http://www.mangaat.com'),
-    ('ReadMangaToday', 'http://www.readmanga.today'),
     ('Dynasty-Scans', 'http://dynasty-scans.com')
     );
 
-  ALPHA_LIST = '#abcdefghijklmnopqrstuvwxyz';
+  ALPHA_LIST    = '#abcdefghijklmnopqrstuvwxyz';
+  ALPHA_LIST_UP = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   ANIMEA_BROWSER = '/browse.html?page=';
   ANIMEA_SKIP = '?skip=1';
 
-  OURMANGA_BROWSER = '/directory/';
-
-  MANGA24H_BROWSER = '/manga/update/page/';
-
   VNSHARING_BROWSER = '/DanhSach';
-
-  FAKKU_BROWSER_1 = '/manga/newest';
-  FAKKU_BROWSER_2 = '/doujinshi/newest';
 
   TRUYEN18_ROOT = 'http://www.truyen18.org';
   TRUYEN18_BROWSER = '/moi-dang/danhsach';
 
-  MANGATRADERS_BROWSER = '/directory/';
-
-  TRUYENTRANHTUAN_BROWSER = '/danh-sach-truyen';
-
   TURKCRAFT_BROWSER = '/';
 
-  EATMANGA_BROWSER = '/Manga-Scan/';
-  EATMANGA_maxDLTask: Cardinal = 1;
-
   STARKANA_BROWSER = '/manga/list';
-
-  BLOGTRUYEN_BROWSER = '/danhsach/tatca';
-  BLOGTRUYEN_JS_BROWSER = '/ListStory/GetListStory/';
-  BLOGTRUYEN_POST_FORM = 'Url=tatca&OrderBy=1&PageIndex=';
 
   ESMANGAHERE_BROWSER = '/mangalist/';
 
   ANIMEEXTREMIST_BROWSER = '/mangas.htm?ord=todos';
 
-  HUGEMANGA_BROWSER = '/';
-
   IMANHUA_BROWSER = '/all.html';
-
-  MABUNS_BROWSER = '/p/mabuns-manga-list.html';
-
-  MANGAESTA_BROWSER = '/p/manga-list.html';
 
   CENTRALDEMANGAS_BROWSER = '/mangas/list/*';
 
@@ -411,15 +331,11 @@ const
 
   MANGAAR_BROWSER = '/manga/';
 
-  MANGAAE_BROWSER = '/manga/';
-
   ANIMESTORY_BROWSER = '/mangas/';
 
   LECTUREENLIGNE_BROWSER = '/index.php?page=liste&ordre=titre';
 
   SCANMANGA_BROWSER = '/scanlation/liste_des_mangas.html';
-
-  MANGAGO_BROWSER = '/list/directory/all/';
 
   DM5_BROWSER = '/manhua-new';
 
@@ -431,11 +347,7 @@ const
 
   MANGAREADER_POR_BROWSER = '/AJAX/listaMangas/all';
 
-  NINEMANGA_BROWSER =
-    '/search/?name_sel=contain&wd=&author_sel=contain&author=&artist_sel=contain&artist=&category_id=&out_category_id=&completed_series=either';
-
   JAPANSHIN_BROWSER = '/lectureenligne/reader/list/';
-  JAPSCAN_BROWSER = '/mangas/';
 
   CENTRUMMANGI_PL_BROWSER = '/spis/';
 
@@ -494,8 +406,6 @@ var
   // Sites var
   BROWSER_INVERT: Boolean = False;
 
-  FAKKU_BROWSER: String = '/manga/newest';
-
   MANGALIB_PL_COOKIES: String;
 
   //------------------------------------------
@@ -504,11 +414,11 @@ var
 
   Revision: Cardinal;
   currentJDN: Integer;
+  isExiting: Boolean = False;
 type
   TArrayOfString = array of String;
 
-  TCheckStyleType = (CS_DIRECTORY_COUNT, CS_DIRECTORY_PAGE,
-    CS_DIRECTORY_PAGE_2, CS_INFO);
+  TCheckStyleType = (CS_DIRECTORY_COUNT, CS_DIRECTORY_PAGE, CS_INFO);
   TFlagType = (CS_GETPAGENUMBER, CS_GETPAGELINK, CS_DOWNLOAD);
 
   TFavoriteStatusType = (STATUS_IDLE, STATUS_CHECK, STATUS_CHECKING, STATUS_CHECKED);
@@ -532,6 +442,7 @@ type
   PChapterStateItem = ^TChapterStateItem;
 
   TChapterStateItem = record
+    Index: Integer;
     Title,
     Link: String;
     Downloaded: Boolean;
@@ -652,6 +563,7 @@ function CorrectFilePath(const APath: String): String;
 function CorrectURL(const URL: String): String;
 procedure CheckPath(const S: String);
 
+function LocateMangaSiteID(const URL: String): Integer;
 function GetMangaSiteID(const Name: String): Integer;
 function GetMangaSiteName(const ID: Cardinal): String;
 function GetMangaSiteRoot(const Website: String): String; overload;
@@ -674,8 +586,10 @@ function FillMangaSiteHost(const MangaID: Cardinal; URL: String): String; overlo
 function FillMangaSiteHost(const Website, URL: String): String; overload;
 
 // modify url
-function FillHost(const Host, URL: String): String;
-function MaybeFillHost(const Host, URL: String): String;
+function FillHost(const Host, URL: String): String; overload;
+procedure FillHost(const Host: String; const URLs: TStrings); overload;
+function MaybeFillHost(const Host, URL: String): String; overload;
+procedure MaybeFillHost(const Host: String; const URLs: TStrings); overload;
 function GetHostURL(URL: String): String;
 function RemoveHostFromURL(URL: String): String;
 procedure RemoveHostFromURLs(const URLs: TStringList);
@@ -700,8 +614,10 @@ function ConvertCharsetToUTF8(S: String): String; overload;
 procedure ConvertCharsetToUTF8(S: TStrings); overload;
 
 // encode/decode
-function Base64Encode(const s: String): String;
-function Base64Decode(const s: String): String;
+function Base64Encode(const s: String): String; overload;
+function Base64Decode(const s: String): String; overload;
+function Base64Encode(const TheStream: TStream): Boolean ; overload;
+function Base64Decode(const TheStream: TStream): Boolean ; overload;
 
 // StringUtils
 function PadZero(const S: String; ATotalWidth: Integer = 3;
@@ -722,8 +638,9 @@ function TitleCase(const S: string): string;
 function StringReplaceBrackets(const S, OldPattern, NewPattern: String; Flags: TReplaceFlags): String;
 function StreamToString(const Stream: TStream): String; inline;
 function GetRightValue(const Name, s: String): String;
-function QuotedStrd(const S: String): String; overload; inline;
-function QuotedStrd(const S: Integer): String; overload; inline;
+function QuotedStr(const S: Integer): String; overload; inline;
+function QuotedStrD(const S: String): String; overload; inline;
+function QuotedStrD(const S: Integer): String; overload; inline;
 function BracketStr(const S: String): String; inline;
 function RandomString(SLength: Integer; ONumber: Boolean = False;
   OSymbol: Boolean = False; OSpace: Boolean = False): String;
@@ -732,6 +649,8 @@ procedure InvertStrings(const St: TStringList); overload;
 procedure InvertStrings(const Sts: array of TStringList); overload;
 procedure TrimStrings(TheStrings: TStrings);
 procedure RemoveDuplicateStrings(Strs: array of TStringList; RemIndex: Integer = 0);
+function MergeCaseInsensitive(Strs: array of String): String; overload;
+function MergeCaseInsensitive(Strs: array of TStrings): String; overload;
 
 procedure CleanHTMLComments(const Str: TStringList);
 function FixHTMLTagQuote(const s: String): String;
@@ -773,6 +692,8 @@ procedure AddCommaString(var Dest: String; S: String);
 function StringOfString(c: String; l: Integer): String;
 function IncStr(const S: String; N: Integer = 1): String; overload;
 function IncStr(const I: Integer; N: Integer = 1): String; overload; inline;
+function StringIn(const AText: String; const AValues: array of String): Boolean;
+function TextIn(const AText: String; const AValues: array of String): Boolean;
 
 //get heaader value from THTTPSend.Headers
 function GetHeaderValue(const AHeaders: TStrings; HName: String): String;
@@ -795,6 +716,7 @@ procedure GetParams(var output: TCardinalList; input: String); overload;
 procedure GetParams(var output: TList; input: String); overload;
 function ExtractParam(const output: TStrings; input, sep: String;
   WhiteSp: Boolean = True): Integer;
+function GetParams(const input: String): String; overload; inline;
 
 function RemoveDuplicateNumbersInString(const AString: String): String;
 // Set param from input
@@ -802,6 +724,10 @@ function SetParams(input: TObject): String; overload;
 function SetParams(const input: array of String): String; overload;
 
 procedure CustomGenres(var output: TStringList; input: String);
+
+//parse google result urls
+function GoogleResultURL(const AURL: String): String;
+procedure GoogleResultURLs(const AURLs: TStrings);
 
 // deal with sourceforge URL.
 function SourceForgeURL(URL: String): String;
@@ -832,6 +758,8 @@ function SaveImage(const AHTTP: THTTPSend; URL: String;
 function SaveImage(const mangaSiteID: Integer; URL: String;
   const Path, Name: String; var SavedFilename: String; const Reconnect: Integer = 0): Boolean;
   overload; inline;
+function DownloadAndSaveImage(const AHTTP: THTTPSendThread; const AURL, APath, AFileName: String; var ASavedFileName: String): Boolean; overload;
+function DownloadAndSaveImage(const AHTTP: THTTPSendThread; const AURL, APath, AFileName: String): Boolean; overload;
 
 // check file exist with known extensions. AFilename is a filename without extensions
 function ImageFileExist(const AFileName: String): Boolean;
@@ -880,6 +808,11 @@ procedure fmdHibernate;
 // logger
 procedure SendLog(const AText: String); overload; inline;
 procedure SendLog(const AText, AValue: String); overload; inline;
+procedure SendLog(const AText: String; const AValue: Variant); overload; inline;
+procedure SendLog(const AText: String; AValue: TStrings); overload; inline;
+procedure SendLogError(const AText: String); overload; inline;
+procedure SendLogWarning(const AText: String); overload; inline;
+procedure SendLogException(const AText: String; AException: Exception); inline;
 
 implementation
 
@@ -1002,7 +935,7 @@ var
   searchRec: TSearchRec;
 begin
   try
-    Result := (FindFirstUTF8(CleanAndExpandDirectory(ADir) + '*.*',
+    Result := (FindFirstUTF8(CorrectPathSys(ADir) + '*.*',
       faAnyFile{$ifdef unix} or faSymLink{$endif unix}, searchRec) = 0) and
       (FindNextUTF8(searchRec) = 0) and
       (FindNextUTF8(searchRec) <> 0);
@@ -1076,14 +1009,40 @@ begin
   end;
 end;
 
+function LocateMangaSiteID(const URL: String): Integer;
+
+  function PosMangaSite(const s: String): Integer;
+  var
+    i: Integer;
+  begin
+    for i := Low(WebsiteRoots) to High(WebsiteRoots) do
+      if Pos(s, LowerCase(WebsiteRoots[i, 1])) <> 0 then
+        Exit(i);
+    Result := -1;
+  end;
+
+var
+  h: String;
+begin
+  Result := -1;
+  h := LowerCase(URL);
+  Result := PosMangaSite(h);
+  if Result = -1 then
+  begin
+    SplitURL(h, @h, nil, False, False);
+    if h = '' then Exit;
+    Result := PosMangaSite(h);
+  end;
+end;
+
 function GetMangaSiteID(const Name: String): Integer;
 var
   i: Integer;
 begin
-  Result := High(WebsiteRoots) + 1;
   for i := Low(WebsiteRoots) to High(WebsiteRoots) do
     if SameText(Name, WebsiteRoots[i, 0]) then
       Exit(i);
+  Result := -1;
 end;
 
 function GetMangaSiteName(const ID: Cardinal): String;
@@ -1096,10 +1055,10 @@ function GetMangaSiteRoot(const Website: String): String;
 var
   i: Integer;
 begin
-  Result := '';
   for i := Low(WebsiteRoots) to High(WebsiteRoots) do
     if Website = WebsiteRoots[i, 0] then
       Exit(WebsiteRoots[i, 1]);
+  Result := '';
 end;
 
 function GetMangaSiteRoot(const MangaID: Cardinal): String;
@@ -1142,24 +1101,8 @@ begin
     Exit;
   end;
   Result := SitesMemberOf(website, [
-    FAKKU_ID,
-    NINEMANGA_ID,
-    NINEMANGA_ES_ID,
-    NINEMANGA_CN_ID,
-    NINEMANGA_RU_ID,
-    NINEMANGA_DE_ID,
-    NINEMANGA_IT_ID,
-    NINEMANGA_BR_ID,
     ONEMANGA_ID,
-    MYREADINGMANGAINFO_ID,
-    NHENTAI_ID,
-    PORNCOMIX_ID,
-    XXCOMICS_ID,
-    XXCOMICSMT_ID,
-    XXCOMICS3D_ID,
-    PORNCOMIXRE_ID,
-    PORNCOMIXIC_ID,
-    PORNXXXCOMICS_ID
+    NHENTAI_ID
     ]);
 end;
 
@@ -1174,16 +1117,7 @@ begin
     Exit;
   end;
   Result := SitesMemberOf(website, [
-    FAKKU_ID,
-    MYREADINGMANGAINFO_ID,
-    NHENTAI_ID,
-    PORNCOMIX_ID,
-    XXCOMICS_ID,
-    XXCOMICSMT_ID,
-    XXCOMICS3D_ID,
-    PORNCOMIXRE_ID,
-    PORNCOMIXIC_ID,
-    PORNXXXCOMICS_ID
+    NHENTAI_ID
     ]);
 end;
 
@@ -1200,7 +1134,6 @@ begin
   Result := SitesMemberOf(website, [
     MANGASPROJECT_ID,
     TURKCRAFT_ID,
-    HUGEMANGA_ID,
     KIVMANGA_ID,
     MANGAOKU_ID,
     UNIXMANGA_ID
@@ -1212,14 +1145,7 @@ begin
   Result := False;
   Result := SitesMemberOf(website, [
     MEINMANGA_ID,
-    IKOMIK_ID,
-    PORNCOMIX_ID,
-    XXCOMICS_ID,
-    XXCOMICSMT_ID,
-    XXCOMICS3D_ID,
-    PORNCOMIXRE_ID,
-    PORNCOMIXIC_ID,
-    PORNXXXCOMICS_ID
+    IKOMIK_ID
     ]);
 end;
 
@@ -1227,14 +1153,7 @@ function SitesWithSingleChapter(const website: String): Boolean;
 begin
   Result := False;
   Result := SitesMemberOf(website, [
-    FAKKU_ID,
-    MYREADINGMANGAINFO_ID,
-    NHENTAI_ID,
-    PORNCOMIX_ID,
-    XXCOMICS_ID,
-    XXCOMICSMT_ID,
-    XXCOMICS3D_ID,
-    PORNCOMIXRE_ID
+    NHENTAI_ID
     ]);
 end;
 
@@ -1264,68 +1183,72 @@ end;
 
 function FillHost(const Host, URL: String): String;
 var
-  H,P: String;
+  P: String;
 begin
-  SplitURL(URL,H,P);
+  SplitURL(URL,nil,@P);
   Result:=RemoveURLDelim(Host)+P;
+end;
+
+procedure FillHost(const Host: String; const URLs: TStrings);
+var
+  i: Integer;
+begin
+  if (URLs=nil) or (URLs.Count=0) then Exit;
+  for i:=0 to URLs.Count-1 do
+    URLs[i]:=FillHost(Host,URLs[i]);
 end;
 
 function MaybeFillHost(const Host, URL: String): String;
 var
   H,P: String;
 begin
-  SplitURL(URL,H,P);
-  if H='' then Result:=RemoveURLDelim(Host)+P
+  SplitURL(URL,@H,@P);
+  if (H='') and (P<>'') then Result:=RemoveURLDelim(Host)+P
   else Result:=URL;
+end;
+
+procedure MaybeFillHost(const Host: String; const URLs: TStrings);
+var
+  i: Integer;
+begin
+  if (URLs=nil) or (URLs.Count=0) then Exit;
+  for i:=0 to URLs.Count-1 do
+    URLs[i]:=MaybeFillHost(Host,URLs[i]);
 end;
 
 function GetHostURL(URL: String): String;
 var
-  H,P: String;
+  H: String;
 begin
-  SplitURL(URL,H,P);
+  SplitURL(URL,@H,nil);
   Result:=H;
 end;
 
 function RemoveHostFromURL(URL: String): String;
-var
-  H,P: String;
 begin
-  SplitURL(URL,H,P);
-  Result:=P;
+  SplitURL(URL,nil,@Result);
 end;
 
 procedure RemoveHostFromURLs(const URLs: TStringList);
 var
   i: Integer;
-  H,P: String;
 begin
-  if URLs=nil then Exit;
-  if URLs.Count=0 then Exit;
+  if (URLs=nil) or (URLs.Count=0) then Exit;
   for i:=0 to URLs.Count-1 do
-  begin
-    SplitURL(URLs[i],H,P);
-    URLs[i]:=P;
-  end;
+    URLs[i]:=RemoveHostFromURL(URLs[i]);
 end;
 
 procedure RemoveHostFromURLsPair(const URLs, Names: TStringList);
 var
   i: Integer;
-  H,P: String;
 begin
-  if (URLs= nil) or (Names=nil) then Exit;
-  if (URLs.Count<>Names.Count) then Exit;
-  if URLs.Count=0 then Exit;
+  if (URLs=nil) or (Names=nil) or (URLs.Count<>Names.Count) or (URLs.Count=0) then Exit;
   i:=0;
   while i<URLs.Count do
   begin
-    SplitURL(URLs[i],H,P);
-    if P<>'' then
-    begin
-      URLs[i]:=P;
-      Inc(i);
-    end
+    URLs[i]:=RemoveHostFromURL(URLs[i]);
+    if URLs[i]<>'' then
+      Inc(i)
     else
     begin
       URLs.Delete(i);
@@ -1338,7 +1261,7 @@ function EncodeCriticalURLElements(const URL: String): String;
 var
   H,P: String;
 begin
-  SplitURL(URL,H,P);
+  SplitURL(URL,@H,@P);
   Result:=H+EncodeTriplet(P,'%',URLSpecialChar+URLFullSpecialChar-['/']);
 end;
 
@@ -1519,14 +1442,19 @@ begin
     Result := Trim(Copy(s, i + Length(Name), Length(s)));
 end;
 
-function QuotedStrd(const S: String): String;
+function QuotedStr(const S: Integer): String;
+begin
+  Result := AnsiQuotedStr(IntToStr(S), '''');
+end;
+
+function QuotedStrD(const S: String): String;
 begin
   Result := AnsiQuotedStr(S, '"');
 end;
 
-function QuotedStrd(const S: Integer): String;
+function QuotedStrD(const S: Integer): String;
 begin
-  Result := QuotedStrd(IntToStr(S));
+  Result := AnsiQuotedStr(IntToStr(S), '"');
 end;
 
 function BracketStr(const S: String): String;
@@ -1852,6 +1780,44 @@ begin
   end;
 end;
 
+function MergeCaseInsensitive(Strs: array of String): String;
+var
+  s: TStringList;
+  i: Integer;
+begin
+  if Length(Strs) = 0 then Exit;
+  s := TStringList.Create;
+  try
+    s.CaseSensitive := False;
+    s.Duplicates := dupIgnore;
+    s.Sorted := True;
+    for i := Low(Strs) to High(Strs) do
+      s.AddText(Strs[i]);
+    Result := s.Text;
+  finally
+    s.Free;
+  end;
+end;
+
+function MergeCaseInsensitive(Strs: array of TStrings): String;
+var
+  s: TStringList;
+  i: Integer;
+begin
+  if Length(Strs) = 0 then Exit;
+  s := TStringList.Create;
+  try
+    s.CaseSensitive := False;
+    s.sorted := True;
+    s.Duplicates := dupIgnore;
+    for i := Low(Strs) to High(Strs) do
+      s.AddText(Strs[i].Text);
+    Result := s.Text;
+  finally
+    s.Free;
+  end;
+end;
+
 procedure CleanHTMLComments(const Str: TStringList);
 var
   i: Integer;
@@ -1925,6 +1891,26 @@ begin
   Result := IntToStr(I + N);
 end;
 
+function StringIn(const AText: String; const AValues: array of String): Boolean;
+var
+  i: Integer;
+begin
+  for i := Low(AValues) to High(AValues) do
+    if AValues[i] = AText then
+      Exit(True);
+  Result := False;
+end;
+
+function TextIn(const AText: String; const AValues: array of String): Boolean;
+var
+  i: Integer;
+begin
+  for i := Low(AValues) to High(AValues) do
+    if SameText(AValues[i], AText) then
+      Exit(True);
+  Result := False;
+end;
+
 function GetHeaderValue(const AHeaders: TStrings; HName: String): String;
 var
   i, p: Integer;
@@ -1955,6 +1941,63 @@ function Base64Decode(const s: String): String;
 begin
   if s = '' then Exit(s);
   Result := DecodeStringBase64(s);
+end;
+
+function Base64Encode(const TheStream: TStream): Boolean;
+var
+  OutStream: TMemoryStream;
+  Encoder: TBase64EncodingStream;
+begin
+  Result := False;
+  if TheStream = nil then Exit;
+  if TheStream.Size = 0 then Exit;
+  OutStream := TMemoryStream.Create;
+  try
+    Encoder := TBase64EncodingStream.Create(OutStream);
+    try
+      TheStream.Position := 0;
+      Encoder.CopyFrom(TheStream, TheStream.Size);
+      Encoder.Flush;
+      TheStream.Position := 0;
+      TheStream.Size := 0;
+      OutStream.Position := 0;
+      TheStream.CopyFrom(OutStream, OutStream.Size);
+      Result := True;
+    finally
+      Encoder.Free;
+    end;
+  finally
+    OutStream.Free;
+  end;
+end;
+
+function Base64Decode(const TheStream: TStream): Boolean;
+var
+  Decoder: TBase64DecodingStream;
+  InStream: TMemoryStream;
+begin
+  Result := False;
+  if TheStream = nil then Exit;
+  if TheStream.Size = 0 then Exit;
+  InStream := TMemoryStream.Create;
+  try
+    TheStream.Position := 0;
+    InStream.CopyFrom(TheStream, TheStream.Size);
+    try
+      InStream.Position := 0;
+      Decoder := TBase64DecodingStream.Create(InStream);
+      if Decoder.Size > 0 then begin
+        TheStream.Position := 0;
+        TheStream.Size := 0;
+        TheStream.CopyFrom(Decoder, Decoder.Size);
+        Result := True;
+      end;
+    except
+    end;
+    Decoder.Free;
+  finally
+    InStream.Free;
+  end;
 end;
 
 function PadZero(const S: String; ATotalWidth: Integer; PadAll: Boolean; StripZero: Boolean): String;
@@ -2191,15 +2234,7 @@ begin
     // numbering/index
     if (Pos(CR_NUMBERING, Result) = 0) and (Pos(CR_CHAPTER, Result) = 0) then
       Result := ANumbering + Result;
-    if AWebsite = WebsiteRoots[FAKKU_ID, 0] then
-    begin
-      if Pos('%NUMBERING% - ', Result) > 0 then
-        Result := StringReplaceBrackets(Result, CR_NUMBERING + ' - ', '', [rfReplaceAll])
-      else
-        Result := StringReplaceBrackets(Result, CR_NUMBERING, '', [rfReplaceAll]);
-    end
-    else
-      Result := StringReplaceBrackets(Result, CR_NUMBERING, ANumbering, [rfReplaceAll]);
+    Result := StringReplaceBrackets(Result, CR_NUMBERING, ANumbering, [rfReplaceAll]);
 
     // pad number
     fchapter := Trim(AChapter);
@@ -2218,12 +2253,8 @@ begin
 
     Result := StringReplaceBrackets(Result, CR_CHAPTER, fchapter, [rfReplaceAll]);
 
-    if Result = '' then begin
-      if AWebsite = WebsiteRoots[FAKKU_ID, 0] then
-        Result := fchapter
-      else
-        Result := ANumbering;
-    end;
+    if Result = '' then
+      Result := ANumbering;
   end;
 
   Result := StringReplaceBrackets(Result, CR_WEBSITE, FixStringLocal(AWebsite), [rfReplaceAll]);
@@ -2358,6 +2389,11 @@ begin
   until l = 0;
   if Length(input) > 0 then
     output.Add(input);
+end;
+
+function GetParams(const input: String): String;
+begin
+  Result := StringReplace(input, SEPERATOR, LineEnding, [rfReplaceAll]);
 end;
 
 function RemoveDuplicateNumbersInString(const AString: String): String;
@@ -2845,6 +2881,28 @@ begin
   Result := URL;
 end;
 
+function GoogleResultURL(const AURL: String): String;
+begin
+  Result := AURL;
+  if Pos('google.', LowerCase(AURL)) = 0 then Exit;
+  Result := DecodeURL(ReplaceRegExpr('(?i)^.*google\..*\&url=([^\&]+)\&?.*$', AURL, '$1', True));
+end;
+
+procedure GoogleResultURLs(const AURLs: TStrings);
+var
+  i: Integer;
+begin
+  if AURLs.Count = 0 then Exit;
+  if Pos('google.', LowerCase(AURLs.Text)) = 0 then Exit;
+  with TRegExpr.Create('(?i)^.*google\..*\&url=([^\&]+)\&?.*$') do try
+    for i := 0 to AURLs.Count - 1 do
+      if Pos('google.', LowerCase(AURLs[i])) <> 0 then
+        AURLs[i] := DecodeURL(Replace(AURLs[i], '$1', True));
+  finally
+    Free;
+  end;
+end;
+
 function SourceForgeURL(URL: String): String;
   // Detects sourceforge download and tries to deal with
   // redirection, and extracting direct download link.
@@ -3274,7 +3332,7 @@ begin
   Result := '';
   if Stream = nil then Exit;
   if Stream.Size = 0 then Exit;
-  p := CleanAndExpandDirectory(Path);
+  p := CorrectPathSys(Path);
   if ForceDirectoriesUTF8(p) then begin
     f := GetImageStreamExt(Stream);
     if f = '' then Exit;
@@ -3377,7 +3435,7 @@ begin
   // Check to see if a file with similar name was already exist. If so then we
   // skip the download process.
   if Trim(URL) = 'D' then Exit(True);
-  s := CleanAndExpandDirectory(Path) + Name;
+  s := CorrectPathSys(Path) + Name;
   if ImageFileExist(s) then
     Exit(True);
 
@@ -3552,6 +3610,24 @@ begin
   Result := SaveImage(nil, mangaSiteID, URL, Path, Name, SavedFilename, Reconnect);
 end;
 
+function DownloadAndSaveImage(const AHTTP: THTTPSendThread; const AURL, APath,
+  AFileName: String; var ASavedFileName: String): Boolean;
+begin
+  Result := False;
+  if AHTTP.GET(AURL) then
+  begin
+    ASavedFileName := SaveImageStreamToFile(AHTTP, APath, AFileName);
+    Result := ASavedFileName <> '';
+  end;
+end;
+
+function DownloadAndSaveImage(const AHTTP: THTTPSendThread; const AURL, APath, AFileName: String): Boolean;
+begin
+  Result := False;
+  if AHTTP.GET(AURL) then
+    Result := SaveImageStreamToFile(AHTTP, APath, AFileName) <> '';
+end;
+
 function ImageFileExist(const AFileName: String): Boolean;
 begin
   Result := FindImageFile(AFileName) <> '';
@@ -3620,7 +3696,7 @@ var
 begin
   Result := False;
   if not DirectoryExistsUTF8(Directory) then Exit;
-  D := CleanAndExpandDirectory(Directory);
+  D := CorrectPathSys(Directory);
   AImgName1 := D + ImgName1;
   AImgName2 := D + ImgName2;
   if not (FileExistsUTF8(AImgName1) and FileExistsUTF8(AImgName2)) then Exit;
@@ -3987,7 +4063,7 @@ end;
 procedure TFavoriteInfo.SetSaveTo(AValue: String);
 begin
   if FSaveTo = AValue then Exit;
-  FSaveTo := CorrectPathSys(AValue);
+  FSaveTo := AValue;
 end;
 
 { TDownloadInfo }
@@ -3995,7 +4071,7 @@ end;
 procedure TDownloadInfo.SetSaveTo(AValue: String);
 begin
   if FSaveTo = AValue then Exit;
-  FSaveTo := CorrectPathSys(AValue);
+  FSaveTo := AValue;
 end;
 
 { THTMLForm }
@@ -4162,6 +4238,31 @@ end;
 procedure SendLog(const AText, AValue: String);
 begin
   Logger.Send(AText, AValue);
+end;
+
+procedure SendLog(const AText: String; const AValue: Variant);
+begin
+  Logger.Send(AText, VarToStr(AValue));
+end;
+
+procedure SendLog(const AText: String; AValue: TStrings);
+begin
+  Logger.Send(AText, AValue);
+end;
+
+procedure SendLogError(const AText: String);
+begin
+  Logger.SendError(AText);
+end;
+
+procedure SendLogWarning(const AText: String);
+begin
+  Logger.SendWarning(AText);
+end;
+
+procedure SendLogException(const AText: String; AException: Exception);
+begin
+  Logger.SendException(AText, AException);
 end;
 
 function HeaderByName(const AHeaders: TStrings; const AHeaderName: String): String;

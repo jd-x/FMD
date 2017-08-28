@@ -6,54 +6,89 @@ interface
 
 uses
   Classes, SysUtils, httpsend, synautil, synacode, ssl_openssl, blcksock,
-  GZIPUtils;
+  GZIPUtils, BaseThread, dateutils, strutils;
+
+const
+
+  HTTPFormatSettings :TFormatSettings = (
+    CurrencyFormat            :1;
+    NegCurrFormat             :5;
+    ThousandSeparator         :',';
+    DecimalSeparator          :'.';
+    CurrencyDecimals          :2;
+    DateSeparator             :'/';
+    TimeSeparator             :':';
+    ListSeparator             :',';
+    CurrencyString            :'$';
+    ShortDateFormat           :'m/d/y';
+    LongDateFormat            :'dd" "mmmm" "yyyy';
+    TimeAMString              :'AM';
+    TimePMString              :'PM';
+    ShortTimeFormat           :'hh:nn';
+    LongTimeFormat            :'hh:nn:ss';
+    ShortMonthNames           :('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec');
+    LongMonthNames            :('January', 'February', 'March', 'April', 'May',
+                                'June', 'July', 'August', 'September', 'October',
+                                'November', 'December');
+    ShortDayNames             :('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
+    LongDayNames              :('Sunday', 'Monday', 'Tuesday', 'Wednesday',
+                                'Thursday', 'Friday', 'Saturday');
+    TwoDigitYearCenturyWindow :50;
+  );
+
+  // https://tools.ietf.org/html/rfc2616#section-3.3.1
+  HTTPCookieExpiresFormat = 'ddd, dd-mmm-yy hh:nn:ss';
 
 type
 
-  { THTTPThread }
+  THTTPSendThread = class;
 
-  THTTPThread = class(TThread)
-  private
-    FOnCustomTerminate: TNotifyEvent;
-    function GetTerminated: Boolean;
-    procedure CallOnCustomTerminate;
-  public
-    constructor Create(CreateSuspended: Boolean = True);
-    procedure Terminate;
-    property IsTerminated: Boolean read GetTerminated;
-    property OnCustomTerminate: TNotifyEvent read FOnCustomTerminate write FOnCustomTerminate;
-  end;
+  THTTPMethodEvent = procedure(const AHTTP: THTTPSendThread; var Method, URL: String);
 
   { THTTPSendThread }
 
   THTTPSendThread = class(THTTPSend)
   private
-    FOwner: THTTPThread;
+    FOwner: TBaseThread;
     FRetryCount: Integer;
     FGZip: Boolean;
     FFollowRedirection: Boolean;
+    FMaxRedirect: Integer;
     FAllowServerErrorResponse: Boolean;
+    FCookiesExpires: TDateTime;
     procedure SetTimeout(AValue: Integer);
     procedure OnOwnerTerminate(Sender: TObject);
+  protected
+    procedure ParseCookiesExpires;
   public
-    constructor Create(AOwner: THTTPThread = nil);
+    constructor Create(AOwner: TBaseThread = nil);
     destructor Destroy; override;
+    function HTTPMethod(const Method, URL: string): Boolean;
     function HTTPRequest(const Method, URL: String; const Response: TObject = nil): Boolean;
     function HEAD(const URL: String; const Response: TObject = nil): Boolean;
     function GET(const URL: String; const Response: TObject = nil): Boolean;
     function POST(const URL: String; const POSTData: String = ''; const Response: TObject = nil): Boolean;
+    function XHR(const URL: String; const Response: TObject = nil): Boolean;
     function GetCookies: String;
     function ThreadTerminated: Boolean;
     procedure RemoveCookie(const CookieName: String);
     procedure SetProxy(const ProxyType, Host, Port, User, Pass: String);
+    procedure GetProxy(var ProxyType, Host, Port, User, Pass: String);
     procedure SetNoProxy;
+    procedure SetDefaultProxy;
     procedure Reset;
     property Timeout: Integer read FTimeout write SetTimeout;
     property RetryCount: Integer read FRetryCount write FRetryCount;
     property GZip: Boolean read FGZip write FGZip;
     property FollowRedirection: Boolean read FFollowRedirection write FFollowRedirection;
     property AllowServerErrorResponse: Boolean read FAllowServerErrorResponse write FAllowServerErrorResponse;
-    property Thread: THTTPThread read FOwner;
+    property Thread: TBaseThread read FOwner;
+    property CookiesExpires: TDateTime read FCookiesExpires;
+    property MaxRedirect: Integer read FMaxRedirect write FMaxRedirect;
+  public
+    BeforeHTTPMethod: THTTPMethodEvent;
+    AfterHTTPMethod: THTTPMethodEvent;
   end;
 
   TKeyValuePair = array[0..1] of String;
@@ -66,18 +101,19 @@ procedure SetDefaultTimeoutAndApply(const ATimeout: Integer);
 procedure SetDefaultRetryCountAndApply(const ARetryCount: Integer);
 
 function MaybeEncodeURL(const AValue: String): String;
-procedure SplitURL(URL: String; out Host, Path: String);
+procedure SplitURL(const AURL: String; const AHost, APath: PString;
+  const AIncludeProtocol: Boolean = True; const AIncludePort: Boolean = True);
 
 const
-  UserAgentSynapse = 'Mozilla/4.0 (compatible; Synapse)';
-  UserAgentCURL = 'curl/7.42.1';
+  UserAgentSynapse   = 'Mozilla/4.0 (compatible; Synapse)';
+  UserAgentCURL      = 'curl/7.52.1';
   UserAgentGooglebot = 'Mozilla/5.0 (compatible; Googlebot/2.1;  http://www.google.com/bot.html)';
-  UserAgentInternetExplorer = 'Mozilla/5.0 (compatible; WOW64; MSIE 10.0; Windows NT 6.2)';
-  UserAgentFirefox = 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:48.0) Gecko/20100101 Firefox/48.0';
-  UserAgentChrome =
-    'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36';
-  UserAgentOpera =
-    'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36 OPR/39.0.2256.48';
+  UserAgentMSIE      = 'Mozilla/5.0 (Windows NT 10.0; Win64; Trident/7.0; rv:11.0) like Gecko';
+  UserAgentFirefox   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:53.0) Gecko/20100101 Firefox/53.0';
+  UserAgentChrome    = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.110 Safari/537.36';
+  UserAgentVivaldi   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.90 Safari/537.36 Vivaldi/1.91.867.3';
+  UserAgentOpera     = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 OPR/45.0.2552.888';
+  UserAgentEdge      = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.79 Safari/537.36 Edge/14.14393';
 
 var
   DefaultUserAgent: String = UserAgentChrome;
@@ -104,7 +140,8 @@ begin
   Result:=0;
 end;
 
-procedure SplitURL(URL: String; out Host, Path: String);
+procedure SplitURL(const AURL: String; const AHost, APath: PString;
+  const AIncludeProtocol: Boolean; const AIncludePort: Boolean);
 
 procedure cleanuri(var u:string);
 begin
@@ -113,56 +150,81 @@ begin
 end;
 
 var
-  prot,port: String;
+  iurl,ihost,ipath,iproto,iport: String;
   p,q: Integer;
 begin
-  Host:='';
-  Path:='';
-  URL:=Trim(URL);
-  if URL='' then Exit;
-  prot:='';
-  port:='';
-  p:=poschar(':',URL);
-  if (p<>0) and (p<Length(URL)) and (URL[P+1]='/') then
-  begin
-    prot:=Copy(URL,1,p-1);
-    Delete(URL,1,p);
-  end;
-  p:=poschar(':',URL);
-  if (p<>0) and (p<Length(URL)) and (URL[P+1] in ['0'..'9']) then
-  begin
-    for q:=p+1 to Length(URL) do
-      if not (URL[q] in ['0'..'9']) then Break;
-    if q=Length(URL) then Inc(q);
-    port:=Copy(URL,p+1,q-p-1);
-    delete(URL,p,q-p);
-  end;
-  cleanuri(URL);
-  p:=poschar('.',URL);
-  if (p<>0) and (p>poschar('/',URL)) then p:=0;
-  if (p<>0) and (p<Length(URL)) then
-  begin
-    p:=poschar('/',URL,p);
-    if p<>0 then
+  if (AHost=nil) and (APath=nil) then Exit;
+  if Assigned(AHost) then AHost^:='';
+  if Assigned(APath) then APath^:='';
+  iurl:=Trim(AURL);
+  if iurl='' then Exit;
+  ihost:='';
+  ipath:='';
+  iproto:='';
+  iport:='';
+  if iurl[1]='/' then
+    if Length(iurl)=1 then Exit
+    else
+    if iurl[2]<>'/' then
     begin
-      Host:=Copy(URL,1,p-1);
-      Delete(URL,1,p-1);
-      cleanuri(URL);
+      if Assigned(APath) then APath^:=iurl;
+      Exit;
+    end;
+  p:=poschar(':',iurl);
+  if (p<>0) and (p<Length(iurl)) and (iurl[P+1]='/') then
+  begin
+    iproto:=Copy(iurl,1,p-1);
+    Delete(iurl,1,p);
+    p:=poschar(':',iurl);
+  end;
+  q:=0;
+  if (p<>0) and (p<Length(iurl)) and (iurl[P+1] in ['0'..'9']) then
+  begin
+    for q:=p+1 to Length(iurl) do
+      if not (iurl[q] in ['0'..'9']) then Break;
+    if q=Length(iurl) then Inc(q);
+    iport:=Copy(iurl,p+1,q-p-1);
+    delete(iurl,p,q-p);
+  end;
+  cleanuri(iurl);
+  p:=poschar('.',iurl);
+  q:=poschar('/',iurl);
+  if (p<>0) and (p<Length(iurl)) then
+    if p<q then
+    begin
+      ihost:=Copy(iurl,1,q-1);
+      Delete(iurl,1,q-1);
+      cleanuri(iurl);
     end
     else
+    if q=0 then
     begin
-      Host:=URL;
-      URL:='';
+      q:=poschar('.',iurl,p+1);
+      if (q<>0) and (q<Length(iurl)) then
+      begin
+        ihost:=iurl;
+        iurl:='';
+      end;
     end;
-  end;
-  if Host<>'' then
+  if (ihost='') and (iurl<>'') and ((iproto<>'') or (iport<>'')) then
   begin
-    if prot<>'' then Host:=prot+'://'+Host
-    else Host:='http://'+Host;
-    if port<>'' then Host:=Host+':'+port;
+    ihost:=iurl;
+    iurl:='';
   end;
-  if URL='' then Exit;
-  Path:='/'+URL;
+  if ihost<>'' then
+  begin
+    if AIncludeProtocol then
+    begin
+      if iproto<>'' then ihost:=iproto+'://'+ihost
+      else ihost:='http://'+ihost;
+    end;
+    if AIncludePort and (iport<>'') then
+      ihost:=ihost+':'+iport;
+  end;
+  if iurl<>'' then
+    ipath:='/'+iurl;
+  if Assigned(AHost) then AHost^:=ihost;
+  if Assigned(APath) then APath^:=ipath;
 end;
 
 function KeyVal(const AKey, AValue: String): TKeyValuePair;
@@ -255,37 +317,13 @@ begin
     Result := EncodeURL(Result);
 end;
 
-{ THTTPThread }
-
-function THTTPThread.GetTerminated: Boolean;
-begin
-  Result := Self.Terminated;
-end;
-
-procedure THTTPThread.CallOnCustomTerminate;
-begin
-  FOnCustomTerminate(Self);
-end;
-
-constructor THTTPThread.Create(CreateSuspended: Boolean);
-begin
-  inherited Create(CreateSuspended);
-  FreeOnTerminate := True;
-end;
-
-procedure THTTPThread.Terminate;
-begin
-  inherited Terminate;
-  if Assigned(FOnCustomTerminate) then
-    Synchronize(@CallOnCustomTerminate);
-end;
-
 { THTTPSendThread }
 
 procedure THTTPSendThread.SetTimeout(AValue: Integer);
 begin
   if FTimeout = AValue then Exit;
   FTimeout := AValue;
+  Sock.ConnectionTimeout := FTimeout;
   Sock.SocksTimeout := FTimeout;
   Sock.SetTimeout(FTimeout);
 end;
@@ -296,7 +334,35 @@ begin
   Sock.AbortSocket;
 end;
 
-constructor THTTPSendThread.Create(AOwner: THTTPThread);
+procedure THTTPSendThread.ParseCookiesExpires;
+var
+  i, p: Integer;
+  c: TDateTime;
+  s: String;
+begin
+  FCookiesExpires := 0.0;
+  for i := 0 to FHeaders.Count-1 do
+    if Pos('set-cookie', LowerCase(FHeaders[i])) = 1 then
+    begin
+      s := SeparateRight(FHeaders[i], ':');
+      p := Pos('expires', lowercase(s));
+      if p <> 0 then
+      begin
+        s := Copy(s, p, Length(s));
+        s := SeparateLeft(SeparateRight(s,'='),';');
+        s := Trim(SeparateLeft(s, 'GMT'));
+        c := 0.0;
+        try
+          c := UniversalTimeToLocal(ScanDateTime(HTTPCookieExpiresFormat, s, HTTPFormatSettings));
+          if (FCookiesExpires = 0.0) or (c < FCookiesExpires) then
+            FCookiesExpires := c;
+        except
+        end;
+      end;
+    end;
+end;
+
+constructor THTTPSendThread.Create(AOwner: TBaseThread);
 begin
   inherited Create;
   KeepAlive := True;
@@ -309,6 +375,7 @@ begin
   FFollowRedirection := True;
   FAllowServerErrorResponse := False;
   FRetryCount := DefaultRetryCount;
+  FMaxRedirect := 5;
   SetTimeout(DefaultTimeout);
   SetProxy(DefaultProxyType, DefaultProxyHost, DefaultProxyPort, DefaultProxyUser, DefaultProxyPass);
   Reset;
@@ -317,6 +384,8 @@ begin
     FOwner := AOwner;
     FOwner.OnCustomTerminate := @OnOwnerTerminate;
   end;
+  BeforeHTTPMethod := nil;
+  AfterHTTPMethod := nil;
   EnterCriticalsection(CS_ALLHTTPSendThread);
   try
     ALLHTTPSendThread.Add(Self);
@@ -336,6 +405,21 @@ begin
   inherited Destroy;
 end;
 
+function THTTPSendThread.HTTPMethod(const Method, URL: string): Boolean;
+var
+  amethod, aurl: String;
+begin
+  amethod:=Method;
+  aurl:=URL;
+  if Assigned(BeforeHTTPMethod) then
+    BeforeHTTPMethod(Self, amethod, aurl);
+  FCookiesExpires := 0.0;
+  Result := inherited HTTPMethod(amethod, aurl);
+  ParseCookiesExpires;
+  if Assigned(BeforeHTTPMethod) then
+    BeforeHTTPMethod(Self, amethod, aurl);
+end;
+
 function THTTPSendThread.HTTPRequest(const Method, URL: String; const Response: TObject): Boolean;
 
   function CheckTerminate: Boolean;
@@ -346,12 +430,15 @@ function THTTPSendThread.HTTPRequest(const Method, URL: String; const Response: 
 
 var
   counter: Integer = 0;
+  redirectcounter: Integer = 0;
   rurl, s, h, p: String;
   HTTPHeader: TStringList;
   mstream: TMemoryStream;
 begin
   Result := False;
-  rurl := MaybeEncodeURL(URL);
+  rurl := TrimRight(TrimLeftSet(URL, [':', '/', #0..' ']));
+  if rurl = '' then Exit;
+  rurl := MaybeEncodeURL(rurl);
   if Pos('HTTP/', Headers.Text) = 1 then Reset;
   HTTPHeader := TStringList.Create;
   HTTPHeader.Assign(Headers);
@@ -365,18 +452,21 @@ begin
       Headers.Assign(HTTPHeader);
     end;
 
-    // redirection      '
+    // redirection, only 301, 302, 303
     if FFollowRedirection then
-      while (ResultCode > 300) and (ResultCode < 400) do begin
+      while (ResultCode > 300) and (ResultCode < 304) do begin
         if CheckTerminate then Exit;
+        // break too many redirect
+        if redirectcounter >= FMaxRedirect then Exit
+        else Inc(redirectcounter);
         HTTPHeader.Values['Referer'] := ' ' + rurl;
         s := Trim(Headers.Values['Location']);
         if s<>'' then
         begin
-          SplitURL(s,h,p);
+          SplitURL(s,@h,@p);
           s:=p;
           if h='' then
-            SplitURL(rurl,h,p);
+            SplitURL(rurl,@h,@p);
           rurl:=h+s;
         end;
 
@@ -442,6 +532,14 @@ begin
   Result := HTTPRequest('POST', URL, Response);
 end;
 
+function THTTPSendThread.XHR(const URL: String; const Response: TObject
+  ): Boolean;
+begin
+  if Pos('HTTP/', Headers.Text) = 1 then Reset;
+  Headers.Add('X-Requested-With: XMLHttpRequest');
+  Result := GET(URL, Response);
+end;
+
 function THTTPSendThread.GetCookies: String;
 var
   i: Integer;
@@ -456,9 +554,10 @@ end;
 
 function THTTPSendThread.ThreadTerminated: Boolean;
 begin
-  Result := False;
   if Assigned(FOwner) then
-    Result := FOwner.IsTerminated;
+    Result := FOwner.IsTerminated
+  else
+    Result := False;
 end;
 
 procedure THTTPSendThread.RemoveCookie(const CookieName: String);
@@ -510,9 +609,47 @@ begin
   end;
 end;
 
+procedure THTTPSendThread.GetProxy(var ProxyType, Host, Port, User, Pass: String);
+begin
+  if ProxyHost <> '' then
+  begin
+    ProxyType := 'HTTP';
+    Host := ProxyHost;
+    Port := ProxyPort;
+    User := ProxyUser;
+    Pass := ProxyPass;
+  end
+  else
+  if Sock.SocksIP <> '' then
+    with Sock do
+    begin
+      if SocksType = ST_Socks5 then
+        ProxyType := 'SOCKS5'
+      else
+        ProxyType := 'SOCKS4';
+      Host := SocksIP;
+      Port := SocksPort;
+      User := SocksUsername;
+      Pass := SocksPassword;
+    end
+  else
+  begin
+    ProxyType := '';
+    Host := '';
+    Port := '';
+    User := '';
+    Pass := '';
+  end;
+end;
+
 procedure THTTPSendThread.SetNoProxy;
 begin
   SetProxy('', '', '', '', '');
+end;
+
+procedure THTTPSendThread.SetDefaultProxy;
+begin
+  SetProxy(DefaultProxyType, DefaultProxyHost, DefaultProxyPort, DefaultProxyUser, DefaultProxyPass);
 end;
 
 procedure THTTPSendThread.Reset;

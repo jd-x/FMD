@@ -19,15 +19,14 @@ const
   NET_PROBLEM = 1;
   INFORMATION_NOT_FOUND = 2;
 
-  MAX_TASKLIMIT = 8;
-  MAX_CONNECTIONPERHOSTLIMIT = 32;
-
 type
 
   TModuleContainer = class;
 
+  TOnBeforeUpdateList = function(const Module: TModuleContainer): Boolean;
+  TOnAfterUpdateList = function(const Module: TModuleContainer): Boolean;
   TOnGetDirectoryPageNumber = function(const MangaInfo: TMangaInformation;
-    var Page: Integer; const Module: TModuleContainer): Integer;
+    var Page: Integer; const WorkPtr: Integer; const Module: TModuleContainer): Integer;
   TOnGetNameAndLink = function(const MangaInfo: TMangaInformation;
     const ANames, ALinks: TStringList; const AURL: String;
     const Module: TModuleContainer): Integer;
@@ -41,7 +40,7 @@ type
     const AURL: String; const Module: TModuleContainer): Boolean;
 
   TOnBeforeDownloadImage = function(const DownloadThread: TDownloadThread;
-    const AURL: String; const Module: TModuleContainer): Boolean;
+    var AURL: String; const Module: TModuleContainer): Boolean;
 
   TOnDownloadImage = function(const DownloadThread: TDownloadThread;
     const AURL, APath, AName: String; const Module: TModuleContainer): Boolean;
@@ -88,6 +87,8 @@ type
     TotalDirectoryPage: array of Integer;
     CurrentDirectoryIndex: Integer;
     OptionList: array of TWebsiteOptionItem;
+    OnBeforeUpdateList: TOnBeforeUpdateList;
+    OnAfterUpdateList: TOnAfterUpdateList;
     OnGetDirectoryPageNumber: TOnGetDirectoryPageNumber;
     OnGetNameAndLink: TOnGetNameAndLink;
     OnGetInfo: TOnGetInfo;
@@ -144,10 +145,12 @@ type
     function ModuleAvailable(const AWebsite: String;
       var OutIndex: Integer): Boolean; overload;
 
+    function BeforeUpdateList(const ModuleId: Integer): Boolean;
+    function AfterUpdateList(const ModuleId: Integer): Boolean;
     function GetDirectoryPageNumber(const MangaInfo: TMangaInformation;
-      var Page: Integer; const ModuleId: Integer): Integer; overload;
+      var Page: Integer; const WorkPtr: Integer; const ModuleId: Integer): Integer; overload;
     function GetDirectoryPageNumber(const MangaInfo: TMangaInformation;
-      var Page: Integer; const AWebsite: String): Integer; overload;
+      var Page: Integer; const WorkPtr: Integer; const AWebsite: String): Integer; overload;
 
     function GetNameAndLink(const MangaInfo: TMangaInformation;
       const ANames, ALinks: TStringList; const AURL: String;
@@ -177,9 +180,9 @@ type
       const AURL, AWebsite: String): Boolean; overload;
 
     function BeforeDownloadImage(const DownloadThread: TDownloadThread;
-      const AURL: String; const ModuleId: Integer): Boolean; overload;
+      var AURL: String; const ModuleId: Integer): Boolean; overload;
     function BeforeDownloadImage(const DownloadThread: TDownloadThread;
-      const AURL, AWebsite: String): Boolean; overload;
+      var AURL, AWebsite: String): Boolean; overload;
 
     function DownloadImage(const DownloadThread: TDownloadThread;
       const AURL, APath, AName: String; const ModuleId: Integer): Boolean; overload;
@@ -195,7 +198,7 @@ type
     procedure LockModules;
     procedure UnlockModules;
 
-    property Module[const ModuleId: Integer]: TModuleContainer read GetModule;
+    property Module[const ModuleId: Integer]: TModuleContainer read GetModule; default;
     property Count: Integer read GetCount;
     property Website[const ModuleId: Integer]: String read GetWebsite;
 
@@ -229,9 +232,6 @@ function CleanOptionName(const S: String): String;
 implementation
 
 {$I ModuleList.inc}
-
-const
-  REGEX_HOST = '(?ig)^(\w+://)?([^/]*\.\w+)?(\:\d+)?(/?.*)$';
 
 var
   CS_Connection: TRTLCriticalSection;
@@ -380,34 +380,28 @@ begin
 end;
 
 function TWebsiteModules.LocateModuleByHost(const AHost: String): Integer;
+
+  function PosModule(const s: String): Integer;
+  var
+    i: Integer;
+  begin
+    for i := 0 to FModuleList.Count - 1 do
+      if Pos(s, LowerCase(TModuleContainer(FModuleList[i]).RootURL)) <> 0 then
+        Exit(i);
+    Result := -1;
+  end;
 var
-  i: Integer;
   h: String;
 begin
   Result := -1;
-  if FModuleList.Count > 0 then
+  if FModuleList.Count = 0 then Exit;
+  h := LowerCase(AHost);
+  Result := PosModule(h);
+  if Result = -1 then
   begin
-    h := LowerCase(AHost);
-    for i := 0 to FModuleList.Count - 1 do
-      if Pos(h, LowerCase(TModuleContainer(FModuleList[i]).RootURL)) <> 0 then
-      begin
-        Result := i;
-        Break;
-      end;
-    if Result = -1 then
-      with TRegExpr.Create do
-        try
-          Expression := REGEX_HOST;
-          for i := 0 to FModuleList.Count - 1 do
-            if Pos(LowerCase(Replace(TModuleContainer(FModuleList[i]).RootURL,
-              '$2', True)), h) <> 0 then
-            begin
-              Result := i;
-              Break;
-            end;
-        finally
-          Free;
-        end;
+    SplitURL(h, @h, nil, False, False);
+    if h = '' then Exit;
+    Result := PosModule(h);
   end;
 end;
 
@@ -458,23 +452,41 @@ begin
   Result := OutIndex > -1;
 end;
 
+function TWebsiteModules.BeforeUpdateList(const ModuleId: Integer): Boolean;
+begin
+  Result := False;
+  if (ModuleId < 0) or (ModuleId >= FModuleList.Count) then Exit;
+  with TModuleContainer(FModuleList[ModuleId]) do
+    if Assigned(OnBeforeUpdateList) then
+      Result := OnBeforeUpdateList(TModuleContainer(FModuleList[ModuleId]));
+end;
+
+function TWebsiteModules.AfterUpdateList(const ModuleId: Integer): Boolean;
+begin
+  Result := False;
+  if (ModuleId < 0) or (ModuleId >= FModuleList.Count) then Exit;
+  with TModuleContainer(FModuleList[ModuleId]) do
+    if Assigned(OnAfterUpdateList) then
+      Result := OnAfterUpdateList(TModuleContainer(FModuleList[ModuleId]));
+end;
+
 function TWebsiteModules.GetDirectoryPageNumber(
-  const MangaInfo: TMangaInformation; var Page: Integer; const ModuleId: Integer
-  ): Integer;
+  const MangaInfo: TMangaInformation; var Page: Integer; const WorkPtr: Integer;
+  const ModuleId: Integer): Integer;
 begin
   Page := 1;
   Result := MODULE_NOT_FOUND;
   if (ModuleId < 0) or (ModuleId >= FModuleList.Count) then Exit;
-  if Assigned(TModuleContainer(FModuleList[ModuleId]).OnGetDirectoryPageNumber) then
-    Result := TModuleContainer(FModuleList[ModuleId]).OnGetDirectoryPageNumber(
-      MangaInfo, Page, TModuleContainer(FModuleList[ModuleId]));
+  with TModuleContainer(FModuleList[ModuleId]) do
+    if Assigned(OnGetDirectoryPageNumber) then
+      Result := OnGetDirectoryPageNumber(MangaInfo, Page, WorkPtr,TModuleContainer(FModuleList[ModuleId]));
 end;
 
 function TWebsiteModules.GetDirectoryPageNumber(
-  const MangaInfo: TMangaInformation; var Page: Integer; const AWebsite: String
-  ): Integer;
+  const MangaInfo: TMangaInformation; var Page: Integer; const WorkPtr: Integer;
+  const AWebsite: String): Integer;
 begin
-  Result := GetDirectoryPageNumber(MangaInfo, Page, LocateModule(AWebsite));
+  Result := GetDirectoryPageNumber(MangaInfo, Page, WorkPtr, LocateModule(AWebsite));
 end;
 
 function TWebsiteModules.GetNameAndLink(const MangaInfo: TMangaInformation;
@@ -559,7 +571,7 @@ begin
 end;
 
 function TWebsiteModules.BeforeDownloadImage(
-  const DownloadThread: TDownloadThread; const AURL: String;
+  const DownloadThread: TDownloadThread; var AURL: String;
   const ModuleId: Integer): Boolean;
 begin
   Result := False;
@@ -570,7 +582,7 @@ begin
 end;
 
 function TWebsiteModules.BeforeDownloadImage(
-  const DownloadThread: TDownloadThread; const AURL, AWebsite: String): Boolean;
+  const DownloadThread: TDownloadThread; var AURL, AWebsite: String): Boolean;
 begin
   Result := BeforeDownloadImage(DownloadThread, AURL, LocateModule(AWebsite));
 end;

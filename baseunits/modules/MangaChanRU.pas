@@ -15,7 +15,7 @@ const
   perpage = 20;
 
 function GetDirectoryPageNumber(const MangaInfo: TMangaInformation;
-  var Page: Integer; const Module: TModuleContainer): Integer;
+  var Page: Integer; const WorkPtr: Integer; const Module: TModuleContainer): Integer;
 var
   s: String;
 begin
@@ -160,7 +160,7 @@ procedure RegisterModule;
 
 begin
   AddWebsiteModule('MangaChanRU', 'http://mangachan.me');
-  AddWebsiteModule('HentaiChanRU', 'http://hentaichan.me');
+  AddWebsiteModule('HentaiChanRU', 'http://henchan.me');
   AddWebsiteModule('YaoiChanRU', 'http://yaoichan.me');
 end;
 

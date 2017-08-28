@@ -34,8 +34,6 @@ const
   EXPARAM_CHAPTER = '%CHAPTER%';
   DEFAULT_EXPARAM = '"' + EXPARAM_PATH + EXPARAM_CHAPTER + '"';
 
-  SOCKHEARTBEATRATE = 400;
-
   DEFAULT_LIST = 'AnimeA,MangaFox,MangaHere,MangaInn,MangaReader';
   DEFAULT_MANGA_CUSTOMRENAME = '%MANGA%';
   DEFAULT_CHAPTER_CUSTOMRENAME = '%CHAPTER%';
@@ -47,6 +45,22 @@ const
   ZIP_EXE = '7za.exe';
   RUN_EXE = '.run';
 
+
+  SOCKHEARTBEATRATE = 500;
+  {$IFDEF WINDOWS}
+  {$IFDEF WIN32}
+  MAX_TASKLIMIT = 16;
+  MAX_CONNECTIONPERHOSTLIMIT = 64;
+  {$ENDIF}
+  {$IFDEF WIN64}
+  MAX_TASKLIMIT = 64;
+  MAX_CONNECTIONPERHOSTLIMIT = 256;
+  {$ENDIF}
+  {$ELSE}
+  MAX_TASKLIMIT = 8;
+  MAX_CONNECTIONPERHOSTLIMIT = 32;
+  {$ENDIF}
+
 var
   FMD_VERSION_NUMBER,
   FMD_DIRECTORY,
@@ -54,9 +68,11 @@ var
   DEFAULT_PATH,
   WORK_FOLDER,
   WORK_FILE,
+  WORK_FILEDB,
   DOWNLOADEDCHAPTERS_FILE,
   DOWNLOADEDCHAPTERSDB_FILE,
   FAVORITES_FILE,
+  FAVORITESDB_FILE,
   CONFIG_FOLDER,
   CONFIG_FILE,
   CONFIG_ADVANCED,
@@ -90,6 +106,7 @@ var
 
   OptionLetFMDDo: TFMDDo = DO_NOTHING;
 
+  // saveto
   OptionChangeUnicodeCharacter: Boolean = False;
   OptionChangeUnicodeCharacterStr: String = '_';
   OptionGenerateMangaFolder: Boolean = False;
@@ -104,13 +121,20 @@ var
   OptionConvertDigitChapterLength: Integer;
 
   OptionPDFQuality: Cardinal = 95;
-  OptionUpdateListNoMangaInfo: Boolean = False;
-  OptionUpdateListRemoveDuplicateLocalData: Boolean = False;
 
+  // connections
+  OptionMaxParallel: Integer = 1;
   OptionMaxThreads: Integer = 1;
+  OptionMaxRetry: Integer = 5;
+  OptionConnectionTimeout: Integer = 30;
+  OptionRetryFailedTask: Integer = 1;
+  OptionAlwaysStartTaskFromFailedChapters: Boolean = True;
 
+  // view
   OptionEnableLoadCover: Boolean = False;
+  OptionShowBalloonHint: Boolean = True;
 
+  // updates
   OptionAutoCheckLatestVersion: Boolean = True;
   OptionAutoCheckFavStartup: Boolean = True;
   OptionAutoCheckFavInterval: Boolean = True;
@@ -118,6 +142,8 @@ var
   OptionNewMangaTime: Cardinal = 1;
   OptionAutoCheckFavDownload: Boolean = False;
   OptionAutoCheckFavRemoveCompletedManga: Boolean = False;
+  OptionUpdateListNoMangaInfo: Boolean = False;
+  OptionUpdateListRemoveDuplicateLocalData: Boolean = False;
 
   OptionHTTPUseGzip: Boolean = True;
 
@@ -266,7 +292,7 @@ procedure SetAppDataDirectory(const ADir: String);
 begin
   APPDATA_DIRECTORY := CleanAndExpandDirectory(ADir);
 
-  DEFAULT_PATH := APPDATA_DIRECTORY + 'downloads' + PathDelim;
+  DEFAULT_PATH := 'downloads' + PathDelim;
 
   CONFIG_FOLDER := APPDATA_DIRECTORY + 'config' + PathDelim;
   CONFIG_FILE := CONFIG_FOLDER + 'config.ini';
@@ -278,9 +304,11 @@ begin
 
   WORK_FOLDER := APPDATA_DIRECTORY + 'works' + PathDelim;
   WORK_FILE := WORK_FOLDER + 'works.ini';
+  WORK_FILEDB := WORK_FOLDER + 'downloads.db';
   DOWNLOADEDCHAPTERS_FILE := WORK_FOLDER + 'downloadedchapters.ini';
   DOWNLOADEDCHAPTERSDB_FILE := WORK_FOLDER + 'downloadedchapters.db';
   FAVORITES_FILE := WORK_FOLDER + 'favorites.ini';
+  FAVORITESDB_FILE := WORK_FOLDER + 'favorites.db';
 
   SetIniFiles;
 end;
